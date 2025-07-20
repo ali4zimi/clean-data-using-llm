@@ -8,52 +8,72 @@ interface Step4Props {
 }
 
 export default function Step4({ processedData, onComplete }: Step4Props) {
-    const [showFullTable, setShowFullTable] = useState(false);
+    const [tableName, setTableName] = useState('vocabulary');
+    const [sqlQuery, setSqlQuery] = useState('');
+    const [showQuery, setShowQuery] = useState(false);
     
-    const handleDownloadCsv = () => {
-        if (!processedData) return;
+    const generateInsertQuery = () => {
+        if (!processedData || processedData.length === 0) return;
         
-        // Convert array to CSV string
-        const csvContent = processedData.map((row: string[]) => 
-            row.map(cell => `"${cell}"`).join(',')
-        ).join('\n');
+        const headers = processedData[0];
+        const rows = processedData.slice(1);
         
-        // Create download link
-        const blob = new Blob([csvContent], { type: 'text/csv' });
+        // Create table structure
+        const tableStructure = `-- Create table structure\nCREATE TABLE IF NOT EXISTS ${tableName} (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n${headers.map(header => `    ${header.toLowerCase().replace(/\s+/g, '_')} TEXT`).join(',\n')}\n);\n\n`;
+        
+        // Create insert statements
+        const insertStatements = rows.map(row => {
+            const values = row.map(cell => `'${cell.replace(/'/g, "''")}'`).join(', ');
+            return `INSERT INTO ${tableName} (${headers.map(h => h.toLowerCase().replace(/\s+/g, '_')).join(', ')}) VALUES (${values});`;
+        }).join('\n');
+        
+        const fullQuery = tableStructure + insertStatements;
+        setSqlQuery(fullQuery);
+        setShowQuery(true);
+    };
+
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(sqlQuery);
+        alert('SQL query copied to clipboard!');
+    };
+
+    const downloadSQLFile = () => {
+        const blob = new Blob([sqlQuery], { type: 'text/sql' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'vocabulary_data.csv';
+        a.download = `${tableName}_insert.sql`;
         a.click();
         window.URL.revokeObjectURL(url);
-        
-        onComplete();
     };
 
     return (
         <div id="step-4-content" className="w-full m-auto p-4 bg-white rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-4">Display Results</h2>
+            <h2 className="text-xl font-semibold mb-4">Database Integration</h2>
             
             {processedData && Array.isArray(processedData) && processedData.length > 0 ? (
                 <>
                     <p className="mb-4 text-green-600">
-                        Your vocabulary data has been processed successfully! 
-                        Found {processedData.length - 1} vocabulary entries.
+                        Generate SQL queries to insert your processed data into a database.
                     </p>
                     
                     <div className="mb-4">
-                        <div className="flex justify-between items-center mb-2">
-                            <h3 className="text-sm font-medium text-gray-700">
-                                {showFullTable ? 'Complete Results:' : 'Preview (first 5 entries):'}
-                            </h3>
-                            <button
-                                onClick={() => setShowFullTable(!showFullTable)}
-                                className="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
-                            >
-                                {showFullTable ? 'Show Preview' : 'Show All'}
-                            </button>
-                        </div>
-                        <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-300 rounded">
+                        <label htmlFor="table-name" className="block text-sm font-medium text-gray-700 mb-2">
+                            Table Name:
+                        </label>
+                        <input
+                            type="text"
+                            id="table-name"
+                            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={tableName}
+                            onChange={(e) => setTableName(e.target.value)}
+                            placeholder="Enter table name"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <h3 className="text-sm font-medium text-gray-700 mb-2">Data Preview:</h3>
+                        <div className="overflow-x-auto max-h-48 overflow-y-auto border border-gray-300 rounded bg-gray-50">
                             <table className="min-w-full text-sm border-collapse">
                                 <thead className="bg-gray-100 sticky top-0">
                                     <tr>
@@ -65,8 +85,7 @@ export default function Step4({ processedData, onComplete }: Step4Props) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {(showFullTable ? processedData.slice(1) : processedData.slice(1, 6))
-                                        .map((row: string[], rowIndex: number) => (
+                                    {processedData.slice(1, 4).map((row: string[], rowIndex: number) => (
                                         <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                             {row.map((cell: string, cellIndex: number) => (
                                                 <td key={cellIndex} className="border border-gray-300 px-3 py-2">
@@ -78,19 +97,52 @@ export default function Step4({ processedData, onComplete }: Step4Props) {
                                 </tbody>
                             </table>
                         </div>
-                        {!showFullTable && processedData.length > 6 && (
-                            <p className="text-xs text-gray-500 mt-2">
-                                Showing 5 of {processedData.length - 1} entries. Click "Show All" to see complete table.
-                            </p>
-                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                            Showing first 3 rows of {processedData.length - 1} total entries
+                        </p>
                     </div>
                     
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         <button 
-                            className="bg-green-500 text-white px-4 py-2 rounded mr-2 hover:bg-green-600 transition-colors"
-                            onClick={handleDownloadCsv}
+                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+                            onClick={generateInsertQuery}
+                            disabled={!tableName.trim()}
                         >
-                            Download CSV
+                            Generate SQL Insert Query
+                        </button>
+
+                        {showQuery && sqlQuery && (
+                            <div className="mt-4">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-sm font-medium text-gray-700">Generated SQL Query:</h3>
+                                    <div className="space-x-2">
+                                        <button
+                                            onClick={copyToClipboard}
+                                            className="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
+                                        >
+                                            Copy to Clipboard
+                                        </button>
+                                        <button
+                                            onClick={downloadSQLFile}
+                                            className="text-green-500 hover:text-green-700 text-sm px-2 py-1 border border-green-300 rounded hover:bg-green-50 transition-colors"
+                                        >
+                                            Download SQL File
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea
+                                    value={sqlQuery}
+                                    readOnly
+                                    className="w-full h-64 p-3 bg-gray-50 border border-gray-300 rounded text-sm font-mono text-gray-700 resize-none"
+                                />
+                            </div>
+                        )}
+
+                        <button 
+                            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors"
+                            onClick={onComplete}
+                        >
+                            Complete Process
                         </button>
                     </div>
                 </>

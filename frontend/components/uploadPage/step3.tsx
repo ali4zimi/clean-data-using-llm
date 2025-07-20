@@ -45,6 +45,19 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
 
     const csvData = cleanedData ? parseCSV(cleanedData) : { headers: [], rows: [] };
 
+    const handleDownloadCsv = () => {
+        if (!cleanedData) return;
+        
+        // Create download link
+        const blob = new Blob([cleanedData], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'extracted_data.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    };
+
     const handleProcess = async () => {
         if (!editableText) {
             setProcessingMessage('No text to process. Please complete text extraction first.');
@@ -215,50 +228,61 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
                     </p>
                     
                     <div className="mb-4">
-                        <div className="flex justify-between items-center mb-2">
-                            <h3 className="text-sm font-medium text-gray-700">
-                                {showFullTable ? 'Complete Results:' : 'Preview (first 5 entries):'}
-                            </h3>
-                            <button
-                                onClick={() => setShowFullTable(!showFullTable)}
-                                className="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
-                            >
-                                {showFullTable ? 'Show Preview' : 'Show All'}
-                            </button>
+                        <h3 className="text-sm font-medium text-gray-700 mb-2">Processed Data:</h3>
+                        <div className="flex items-center justify-between border rounded p-2 bg-green-50 border-green-200">
+                            <div className="flex items-center">
+                                <span className="text-green-600 text-xs font-medium mr-2 px-2 py-1 bg-green-100 rounded">CSV</span>
+                                <span className="text-green-700">processed_data.csv</span>
+                                <span className="text-xs text-gray-400 ml-2">({csvData.rows.length} entries)</span>
+                            </div>
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={() => setShowFullTable(!showFullTable)}
+                                    className="text-green-500 hover:text-green-700 text-sm px-2 py-1 border border-green-300 rounded hover:bg-green-50 transition-colors"
+                                >
+                                    {showFullTable ? 'Hide Table' : 'View Table'}
+                                </button>
+                                <button 
+                                    className="text-green-500 hover:text-green-700 text-sm px-2 py-1 border border-green-300 rounded hover:bg-green-50 transition-colors"
+                                    onClick={handleDownloadCsv}
+                                >
+                                    Download
+                                </button>
+                            </div>
                         </div>
-                        <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-300 rounded">
-                            <table className="min-w-full text-sm border-collapse">
-                                <thead className="bg-gray-100 sticky top-0">
-                                    <tr>
-                                        {csvData.headers.map((header, index) => (
-                                            <th key={index} className="border border-gray-300 px-3 py-2 text-left font-medium">
-                                                {header}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(showFullTable ? csvData.rows : csvData.rows.slice(0, 5))
-                                        .map((row, rowIndex) => (
-                                        <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                            {row.map((cell, cellIndex) => (
-                                                <td key={cellIndex} className="border border-gray-300 px-3 py-2">
-                                                    {cell}
-                                                </td>
+                    </div>
+                    
+                    {showFullTable && (
+                        <div className="mb-4">
+                            <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-300 rounded">
+                                <table className="min-w-full text-sm border-collapse">
+                                    <thead className="bg-gray-100 sticky top-0">
+                                        <tr>
+                                            {csvData.headers.map((header, index) => (
+                                                <th key={index} className="border border-gray-300 px-3 py-2 text-left font-medium">
+                                                    {header}
+                                                </th>
                                             ))}
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {csvData.rows.map((row, rowIndex) => (
+                                            <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                {row.map((cell, cellIndex) => (
+                                                    <td key={cellIndex} className="border border-gray-300 px-3 py-2">
+                                                        {cell}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        {!showFullTable && csvData.rows.length > 5 && (
-                            <p className="text-xs text-gray-500 mt-2">
-                                Showing 5 of {csvData.rows.length} entries. Click "Show All" to see complete table.
-                            </p>
-                        )}
-                    </div>
+                    )}
                 </div>
             )}
         </div>
     );
 }
+

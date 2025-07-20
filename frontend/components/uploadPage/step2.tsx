@@ -74,7 +74,10 @@ export default function Step2({
                     setTextFileUrl(result.file_url);
                 }
 
-                onExtractionComplete(result.text || "");
+                // Automatically call onTextReady when extraction completes
+                const extractedText = result.text || "";
+                onTextReady(extractedText);
+                onExtractionComplete(extractedText);
             } catch (error) {
                 console.error('PDF extraction error:', error);
                 onExtractionComplete("");
