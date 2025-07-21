@@ -20,9 +20,6 @@ DATA_DIR = 'data'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# Initialize Gemini Client
-client = genai.Client()
-
 # ┌─────────────────────────────────────────────────────────────┐
 # │ Home route: Returns a welcome message as JSON               │
 # └─────────────────────────────────────────────────────────────┘
@@ -121,20 +118,9 @@ def extract_text():
 # └─────────────────────────────────────────────────────────────┘
 @app.route('/clean-with-ai', methods=['POST'])
 def clean_with_ai():
-    # read cleaned_data.text file
-    cleaned_data_path = os.path.join(DATA_DIR, 'cleaned_data.txt')
-    if not os.path.exists(cleaned_data_path):
-        return jsonify({'error': 'No cleaned data found to process'}), 404
-    with open(cleaned_data_path, 'r', encoding='utf-8') as file:
-        cleaned_data = file.read()
-
-
-    return jsonify({'message': 'Data cleaned successfully', 'content': cleaned_data}), 200
-
-
-
-    # get extraacted_text, prompt from request
-    user_api_key = request.json.get('user_api_key') or os.getenv('API_KEY')
+    # get extracted_text, prompt from request
+    user_api_key = request.json.get('user_api_key')
+    os.environ['GEMINI_API_KEY'] = user_api_key
     user_prompt = request.json.get('user_prompt')
     extracted_text = request.json.get('extracted_text')
     ai_provider = request.json.get('ai_provider', 'gemini')
@@ -143,9 +129,6 @@ def clean_with_ai():
             Text: 
             {extracted_text}
             """
-    
-
-    # return jsonify({'message': 'Data cleaned successfully', 'content': user_prompt}), 200
 
     # Process the text with the selected AI provider
     if ai_provider == 'gemini':
@@ -177,6 +160,9 @@ def clean_with_ai():
 # │ Uses Gemini AI to process the extracted text and returns    │
 # └─────────────────────────────────────────────────────────────┘
 def process_with_gemini(user_api_key, prompt):
+    # Initialize Gemini Client
+    # genai.set_api_key(user_api_key)
+    client = genai.Client()
     response = client.models.generate_content(
         model="gemini-2.5-flash", 
         contents=prompt,
@@ -195,15 +181,6 @@ def process_with_gemini(user_api_key, prompt):
 # └─────────────────────────────────────────────────────────────┘       
 
 def process_with_openai(user_api_key, prompt):
-    # response = client.chat.completions.create(
-    #     model="gpt-4",
-    #     messages=[
-    #         {"role": "user", "content": prompt}
-    #     ]
-    # )
-
-    # content = response.choices[0].message.content
-    # return content
     return "OpenAI processing is not implemented yet. Please use Gemini AI."
 
 
@@ -211,4 +188,4 @@ def process_with_openai(user_api_key, prompt):
 # │ Main entry point: Runs the Flask app in debug mode          │
 # └─────────────────────────────────────────────────────────────┘
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
