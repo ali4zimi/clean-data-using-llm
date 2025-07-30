@@ -1,30 +1,127 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import {
+    useReactTable,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getSortedRowModel,
+    flexRender,
+    ColumnDef,
+    ColumnOrderState,
+    SortingState,
+    VisibilityState,
+} from '@tanstack/react-table';
 
 interface Step4Props {
     processedData: string[][] | null;
+    columnOrder: string[];
     onComplete: () => void;
+    onColumnOrderChange?: (newOrder: string[]) => void; // Add callback for column order changes
+    showFullTable?: boolean; // Add shared table expansion state
+    onShowFullTableChange?: (show: boolean) => void; // Add callback for table expansion changes
 }
 
-export default function Step4({ processedData, onComplete }: Step4Props) {
+export default function Step4({ processedData, columnOrder, onComplete, onColumnOrderChange, showFullTable: propShowFullTable, onShowFullTableChange }: Step4Props) {
     const [tableName, setTableName] = useState('vocabulary');
     const [sqlQuery, setSqlQuery] = useState('');
     const [showQuery, setShowQuery] = useState(false);
-    
-    const generateInsertQuery = () => {
-        if (!processedData || processedData.length === 0) return;
+    const [localColumnOrder, setLocalColumnOrder] = useState<ColumnOrderState>(columnOrder || []);
+    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+    const [sorting, setSorting] = useState<SortingState>([]);
+
+    // Use shared showFullTable state from parent, with fallback to local state
+    const showFullTable = propShowFullTable ?? false;
+
+    // Convert 2D array to object array for TanStack Table
+    const tableData = useMemo(() => {
+        if (!processedData || processedData.length < 2) return [];
         
         const headers = processedData[0];
         const rows = processedData.slice(1);
         
-        // Create table structure
-        const tableStructure = `-- Create table structure\nCREATE TABLE IF NOT EXISTS ${tableName} (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n${headers.map(header => `    ${header.toLowerCase().replace(/\s+/g, '_')} TEXT`).join(',\n')}\n);\n\n`;
+        return rows.map(row => {
+            const obj: any = {};
+            headers.forEach((header, index) => {
+                obj[header] = row[index] || '';
+            });
+            return obj;
+        });
+    }, [processedData]);
+
+    // Create columns for TanStack Table
+    const columns = useMemo<ColumnDef<any>[]>(() => {
+        if (!processedData || processedData.length === 0) return [];
         
-        // Create insert statements
+        const headers = processedData[0];
+        
+        return headers.map((header) => ({
+            id: header,
+            accessorKey: header,
+            header: header,
+            cell: ({ getValue }) => getValue() || '',
+        }));
+    }, [processedData]);
+
+    // Initialize and sync local column order with prop changes
+    useEffect(() => {
+        if (processedData && processedData.length > 0) {
+            const headers = processedData[0];
+            if (columnOrder && columnOrder.length > 0) {
+                setLocalColumnOrder(columnOrder);
+            } else {
+                setLocalColumnOrder(headers);
+            }
+        }
+    }, [processedData, columnOrder]);
+
+    const table = useReactTable({
+        data: tableData,
+        columns,
+        state: {
+            columnOrder: localColumnOrder,
+            columnVisibility,
+            sorting,
+        },
+        onColumnOrderChange: (updaterOrValue) => {
+            const newOrder = typeof updaterOrValue === 'function' 
+                ? updaterOrValue(localColumnOrder) 
+                : updaterOrValue;
+            
+            setLocalColumnOrder(newOrder);
+            
+            // Notify parent about column order change
+            if (onColumnOrderChange) {
+                onColumnOrderChange(newOrder);
+            }
+        },
+        onColumnVisibilityChange: setColumnVisibility,
+        onSortingChange: setSorting,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+    });
+    
+    const generateInsertQuery = () => {
+        if (!processedData || processedData.length === 0) return;
+        
+        // Use the current column order (either from Step3 or local reordering)
+        const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+        const rows = processedData.slice(1);
+        
+        // Create table structure using ordered headers
+        const tableStructure = `-- Create table structure\nCREATE TABLE IF NOT EXISTS ${tableName} (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n${orderedHeaders.map(header => `    ${header.toLowerCase().replace(/\s+/g, '_')} TEXT`).join(',\n')}\n);\n\n`;
+        
+        // Create insert statements using ordered headers
         const insertStatements = rows.map(row => {
-            const values = row.map(cell => `'${cell.replace(/'/g, "''")}'`).join(', ');
-            return `INSERT INTO ${tableName} (${headers.map(h => h.toLowerCase().replace(/\s+/g, '_')).join(', ')}) VALUES (${values});`;
+            // Map the row data according to the ordered headers
+            const originalHeaders = processedData[0];
+            const orderedValues = orderedHeaders.map(header => {
+                const originalIndex = originalHeaders.indexOf(header);
+                return originalIndex !== -1 ? row[originalIndex] || '' : '';
+            });
+            
+            const values = orderedValues.map(cell => `'${cell.replace(/'/g, "''")}'`).join(', ');
+            return `INSERT INTO ${tableName} (${orderedHeaders.map(h => h.toLowerCase().replace(/\s+/g, '_')).join(', ')}) VALUES (${values});`;
         }).join('\n');
         
         const fullQuery = tableStructure + insertStatements;
@@ -47,6 +144,39 @@ export default function Step4({ processedData, onComplete }: Step4Props) {
         window.URL.revokeObjectURL(url);
     };
 
+    const downloadCSV = () => {
+        if (!processedData || processedData.length === 0) return;
+
+        // Use the current column order for CSV export
+        const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+        const originalHeaders = processedData[0];
+        const rows = processedData.slice(1);
+
+        // Reorder data according to current column order
+        const reorderedData = [
+            orderedHeaders,
+            ...rows.map(row => 
+                orderedHeaders.map(header => {
+                    const originalIndex = originalHeaders.indexOf(header);
+                    return originalIndex !== -1 ? row[originalIndex] || '' : '';
+                })
+            )
+        ];
+
+        // Convert to CSV
+        const csvContent = reorderedData
+            .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${tableName}_data.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    };
+
     return (
         <div id="step-4-content" className="w-full m-auto p-4 bg-white rounded-lg shadow-md">
             <h2 className="text-xl font-semibold mb-4">Database Integration</h2>
@@ -55,6 +185,11 @@ export default function Step4({ processedData, onComplete }: Step4Props) {
                 <>
                     <p className="mb-4 text-green-600">
                         Generate SQL queries to insert your processed data into a database.
+                        {columnOrder && columnOrder.length > 0 && (
+                            <span className="block text-sm text-gray-600 mt-1">
+                                ✓ Using your custom column order from Step 3
+                            </span>
+                        )}
                     </p>
                     
                     <div className="mb-4">
@@ -73,23 +208,104 @@ export default function Step4({ processedData, onComplete }: Step4Props) {
 
                     <div className="mb-4">
                         <h3 className="text-sm font-medium text-gray-700 mb-2">Data Preview:</h3>
-                        <div className="overflow-x-auto max-h-48 overflow-y-auto border border-gray-300 rounded bg-gray-50">
+                        <div className="flex items-center justify-between border rounded p-2 bg-green-50 border-green-200">
+                            <div className="flex items-center">
+                                <span className="text-green-600 text-xs font-medium mr-2 px-2 py-1 bg-green-100 rounded">JSON</span>
+                                <span className="text-green-700">processed_data.json</span>
+                                <span className="text-xs text-gray-400 ml-2">({tableData.length} entries)</span>
+                            </div>
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={() => onShowFullTableChange && onShowFullTableChange(!showFullTable)}
+                                    className="text-green-500 hover:text-green-700 text-sm px-2 py-1 border border-green-300 rounded hover:bg-green-50 transition-colors"
+                                >
+                                    {showFullTable ? 'Hide Table' : 'View Table'}
+                                </button>
+                                <button
+                                    onClick={downloadCSV}
+                                    className="text-green-500 hover:text-green-700 text-sm px-2 py-1 border border-green-300 rounded hover:bg-green-50 transition-colors"
+                                >
+                                    Download CSV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {showFullTable && (
+                        <div className="mb-4">
+                            <p className="text-xs text-gray-500 mb-2">
+                                💡 Drag the ⋮⋮ handles to reorder columns. Click column names to sort data.
+                            </p>
+                            <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-300 rounded">
                             <table className="min-w-full text-sm border-collapse">
                                 <thead className="bg-gray-100 sticky top-0">
-                                    <tr>
-                                        {processedData[0].map((header: string, index: number) => (
-                                            <th key={index} className="border border-gray-300 px-3 py-2 text-left font-medium">
-                                                {header}
-                                            </th>
-                                        ))}
-                                    </tr>
+                                    {table.getHeaderGroups().map(headerGroup => (
+                                        <tr key={headerGroup.id}>
+                                            {headerGroup.headers.map(header => (
+                                                <th 
+                                                    key={header.id} 
+                                                    className="border border-gray-300 px-3 py-2 text-left font-medium cursor-pointer hover:bg-gray-200 select-none"
+                                                    onClick={header.column.getToggleSortingHandler()}
+                                                    draggable={true}
+                                                    onDragStart={(e) => {
+                                                        e.dataTransfer.setData('text/plain', header.column.id);
+                                                    }}
+                                                    onDragOver={(e) => {
+                                                        e.preventDefault();
+                                                    }}
+                                                    onDrop={(e) => {
+                                                        e.preventDefault();
+                                                        const draggedColumnId = e.dataTransfer.getData('text/plain');
+                                                        const targetColumnId = header.column.id;
+                                                        
+                                                        if (draggedColumnId !== targetColumnId) {
+                                                            const draggedIndex = localColumnOrder.indexOf(draggedColumnId);
+                                                            const targetIndex = localColumnOrder.indexOf(targetColumnId);
+                                                            
+                                                            if (draggedIndex !== -1 && targetIndex !== -1) {
+                                                                const newOrder = [...localColumnOrder];
+                                                                const [movedColumn] = newOrder.splice(draggedIndex, 1);
+                                                                newOrder.splice(targetIndex, 0, movedColumn);
+                                                                
+                                                                // Use TanStack's column order change handler
+                                                                table.setColumnOrder(newOrder);
+                                                            }
+                                                        }
+                                                    }}
+                                                    style={{ 
+                                                        userSelect: 'none',
+                                                        cursor: 'grab'
+                                                    }}
+                                                    onMouseDown={(e) => {
+                                                        (e.target as HTMLElement).style.cursor = 'grabbing';
+                                                    }}
+                                                    onMouseUp={(e) => {
+                                                        (e.target as HTMLElement).style.cursor = 'grab';
+                                                    }}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="flex items-center">
+                                                            <span className="mr-2" style={{ cursor: 'grab' }} title="Drag to reorder columns">⋮⋮</span>
+                                                            {flexRender(header.column.columnDef.header, header.getContext())}
+                                                        </span>
+                                                        <span className="ml-1">
+                                                            {{
+                                                                asc: '↑',
+                                                                desc: '↓',
+                                                            }[header.column.getIsSorted() as string] ?? '↕'}
+                                                        </span>
+                                                    </div>
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    ))}
                                 </thead>
                                 <tbody>
-                                    {processedData.slice(1, 4).map((row: string[], rowIndex: number) => (
-                                        <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                            {row.map((cell: string, cellIndex: number) => (
-                                                <td key={cellIndex} className="border border-gray-300 px-3 py-2">
-                                                    {cell}
+                                    {table.getRowModel().rows.map((row, index) => (
+                                        <tr key={row.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                            {row.getVisibleCells().map(cell => (
+                                                <td key={cell.id} className="border border-gray-300 px-3 py-2">
+                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                                 </td>
                                             ))}
                                         </tr>
@@ -98,9 +314,10 @@ export default function Step4({ processedData, onComplete }: Step4Props) {
                             </table>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                            Showing first 3 rows of {processedData.length - 1} total entries
+                            Showing all {tableData.length} entries. Column order affects SQL generation.
                         </p>
                     </div>
+                    )}
                     
                     <div className="space-y-3">
                         <button 

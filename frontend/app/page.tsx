@@ -28,8 +28,11 @@ export default function UploadPage() {
     const [aiProvider, setAiProvider] = useState('gemini');
     const [extractedText, setExtractedText] = useState('');
     const [processedData, setProcessedData] = useState<string[][] | null>(null);
-    const [cleanedDataCSV, setCleanedDataCSV] = useState<string>('');
+    const [cleanedDataCSV, setCleanedDataCSV] = useState<any[] | null>(null);
+    const [columnOrder, setColumnOrder] = useState<string[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [showFullTableStep3, setShowFullTableStep3] = useState(false); // Separate state for Step 3 table
+    const [showFullTableStep4, setShowFullTableStep4] = useState(false); // Separate state for Step 4 table
 
     const updateStepStatus = (stepIndex: number, status: 'incomplete' | 'complete') => {
         const newSteps = [...steps];
@@ -123,15 +126,26 @@ export default function UploadPage() {
                         onAiProviderChange={setAiProvider}
                         isProcessing={isProcessing}
                         onProcessingStart={() => setIsProcessing(true)}
-                        onProcessingComplete={(data) => {
+                        onProcessingComplete={(data, userColumnOrder) => {
                             setCleanedDataCSV(data);
-                            // Parse CSV string into 2D array for Step 4
-                            if (data) {
-                                const lines = data.trim().split('\n');
-                                const parsedData = lines.map((line: string) => 
-                                    line.split(',').map((cell: string) => cell.trim().replace(/"/g, ''))
-                                );
-                                setProcessedData(parsedData);
+                            // Handle JSON array data instead of CSV string
+                            if (data && Array.isArray(data)) {
+                                // Convert JSON data to 2D array format for Step 4
+                                if (data.length > 0) {
+                                    // Use user's column order if provided, otherwise use object keys
+                                    const headers = userColumnOrder && userColumnOrder.length > 0 
+                                        ? userColumnOrder 
+                                        : Object.keys(data[0]);
+                                    
+                                    setColumnOrder(headers);
+                                    const headerRow = headers;
+                                    const dataRows = data.map((item: any) => 
+                                        headers.map(header => item[header] || '')
+                                    );
+                                    setProcessedData([headerRow, ...dataRows]);
+                                } else {
+                                    setProcessedData(null);
+                                }
                             } else {
                                 setProcessedData(null);
                             }
@@ -139,13 +153,54 @@ export default function UploadPage() {
                             updateStepStatus(2, 'complete');
                         }}
                         cleanedData={cleanedDataCSV}
+                        columnOrder={columnOrder}
+                        showFullTable={showFullTableStep3}
+                        onShowFullTableChange={setShowFullTableStep3}
+                        onColumnOrderChange={(newOrder) => {
+                            setColumnOrder(newOrder);
+                            // Update cleanedDataCSV to reflect the new column order (for CSV downloads)
+                            // This ensures the data structure stays consistent across steps
+                            if (cleanedDataCSV && Array.isArray(cleanedDataCSV) && cleanedDataCSV.length > 0) {
+                                // Update processedData with new column order
+                                const reorderedData = [
+                                    newOrder,
+                                    ...cleanedDataCSV.map((item: any) => 
+                                        newOrder.map(header => item[header] || '')
+                                    )
+                                ];
+                                setProcessedData(reorderedData);
+                            }
+                        }}
                     />
                 );
             case 4:
                 return (
                     <Step4 
                         processedData={processedData}
+                        columnOrder={columnOrder}
+                        showFullTable={showFullTableStep4}
+                        onShowFullTableChange={setShowFullTableStep4}
                         onComplete={() => updateStepStatus(3, 'complete')}
+                        onColumnOrderChange={(newOrder) => {
+                            setColumnOrder(newOrder);
+                            // Update processedData with new column order
+                            if (processedData && processedData.length > 0) {
+                                const originalHeaders = processedData[0];
+                                const rows = processedData.slice(1);
+                                
+                                // Reorder the data according to new column order
+                                const reorderedData = [
+                                    newOrder,
+                                    ...rows.map(row => 
+                                        newOrder.map(header => {
+                                            const originalIndex = originalHeaders.indexOf(header);
+                                            return originalIndex !== -1 ? row[originalIndex] || '' : '';
+                                        })
+                                    )
+                                ];
+                                setProcessedData(reorderedData);
+                            }
+                        }}
                     />
                 );
             default:
@@ -224,6 +279,10 @@ export default function UploadPage() {
                                 setTextFiles([]);
                                 setExtractedText('');
                                 setProcessedData(null);
+                                setCleanedDataCSV(null);
+                                setColumnOrder([]);
+                                setShowFullTableStep3(false);
+                                setShowFullTableStep4(false);
                                 setSteps(steps.map(step => ({ ...step, status: 'incomplete' })));
                             }}
                         >
