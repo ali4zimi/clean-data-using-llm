@@ -28,6 +28,12 @@ interface Step3Props {
     onShowFullTableChange?: (show: boolean) => void; // Add callback for table expansion changes
 }
 
+interface PromptTemplate {
+    id: number;
+    name: string;
+    prompt: string;
+}
+
 export default function Step3({ extractedText, prompt, aiProvider, onPromptChange, onAiProviderChange, isProcessing, onProcessingStart, onProcessingComplete, cleanedData, columnOrder: propColumnOrder, onColumnOrderChange, showFullTable: propShowFullTable, onShowFullTableChange }: Step3Props) {
     const [processingMessage, setProcessingMessage] = useState('');
     const [showTextView, setShowTextView] = useState(false);
@@ -35,6 +41,9 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
     const [apiKey, setApiKey] = useState('');
     const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
     const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
+    const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
+    const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+    const [loadingTemplates, setLoadingTemplates] = useState(false);
     const downloadDropdownRef = useRef<HTMLDivElement>(null);
 
     // Use shared showFullTable state from parent, with fallback to local state
@@ -43,6 +52,40 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
     useEffect(() => {
         setEditableText(extractedText);
     }, [extractedText]);
+
+    // Fetch prompt templates on component mount
+    useEffect(() => {
+        const fetchPromptTemplates = async () => {
+            setLoadingTemplates(true);
+            try {
+                const response = await fetch('/api/prompt-templates');
+                if (response.ok) {
+                    const data = await response.json();
+                    setPromptTemplates(data.templates || []);
+                }
+            } catch (error) {
+                console.error('Error fetching prompt templates:', error);
+            } finally {
+                setLoadingTemplates(false);
+            }
+        };
+
+        fetchPromptTemplates();
+    }, []);
+
+    // Handle template selection
+    const handleTemplateSelect = (templateId: string) => {
+        setSelectedTemplate(templateId);
+        if (templateId === '') {
+            // Custom template selected, don't change the prompt
+            return;
+        }
+        
+        const template = promptTemplates.find(t => t.id.toString() === templateId);
+        if (template) {
+            onPromptChange(template.prompt);
+        }
+    };
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -284,6 +327,27 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
             )}
 
             <div className="mb-4">
+                <label htmlFor="prompt-template" className="block text-sm font-medium text-gray-700 mb-2">
+                    Prompt Template:
+                </label>
+                <select
+                    id="prompt-template"
+                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                    value={selectedTemplate}
+                    onChange={(e) => handleTemplateSelect(e.target.value)}
+                    disabled={loadingTemplates}
+                >
+                    <option value="">Custom Prompt</option>
+                    {promptTemplates.map((template) => (
+                        <option key={template.id} value={template.id.toString()}>
+                            {template.name}
+                        </option>
+                    ))}
+                </select>
+                {loadingTemplates && (
+                    <p className="text-sm text-gray-500 mb-2">Loading templates...</p>
+                )}
+                
                 <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-2">
                     AI Processing Prompt:
                 </label>
@@ -293,7 +357,13 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
                     value={prompt} 
                     placeholder="Enter your prompt here..." 
                     style={{ height: '200px' }} 
-                    onChange={(e) => onPromptChange(e.target.value)}
+                    onChange={(e) => {
+                        onPromptChange(e.target.value);
+                        // Reset template selection when manually editing
+                        if (selectedTemplate !== '' && e.target.value !== promptTemplates.find(t => t.id.toString() === selectedTemplate)?.prompt) {
+                            setSelectedTemplate('');
+                        }
+                    }}
                 />
             </div>
              
