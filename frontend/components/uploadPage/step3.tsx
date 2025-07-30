@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
     useReactTable,
     getCoreRowModel,
@@ -34,6 +34,8 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
     const [editableText, setEditableText] = useState(extractedText);
     const [apiKey, setApiKey] = useState('');
     const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+    const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
+    const downloadDropdownRef = useRef<HTMLDivElement>(null);
 
     // Use shared showFullTable state from parent, with fallback to local state
     const showFullTable = propShowFullTable ?? false;
@@ -41,6 +43,22 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
     useEffect(() => {
         setEditableText(extractedText);
     }, [extractedText]);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target as Node)) {
+                setShowDownloadDropdown(false);
+            }
+        }
+
+        if (showDownloadDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => {
+                document.removeEventListener('mousedown', handleClickOutside);
+            };
+        }
+    }, [showDownloadDropdown]);
 
     // Sync column order from parent (when coming from Step4 or when parent order changes)
     useEffect(() => {
@@ -138,6 +156,31 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
         const a = document.createElement('a');
         a.href = url;
         a.download = 'extracted_data.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    };
+
+    const handleDownloadJson = () => {
+        if (!cleanedData || !Array.isArray(cleanedData)) return;
+        
+        // Reorder JSON data according to current column order
+        const orderedData = cleanedData.map(item => {
+            const orderedItem: any = {};
+            const headers = columnOrder.length > 0 ? columnOrder : Object.keys(item);
+            headers.forEach(header => {
+                orderedItem[header] = item[header] || '';
+            });
+            return orderedItem;
+        });
+        
+        const jsonContent = JSON.stringify(orderedData, null, 2);
+        
+        // Create download link
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'extracted_data.json';
         a.click();
         window.URL.revokeObjectURL(url);
     };
@@ -326,12 +369,39 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
                                 >
                                     {showFullTable ? 'Hide Table' : 'View Table'}
                                 </button>
-                                <button 
-                                    className="text-green-500 hover:text-green-700 text-sm px-2 py-1 border border-green-300 rounded hover:bg-green-50 transition-colors"
-                                    onClick={handleDownloadCsv}
-                                >
-                                    Download CSV
-                                </button>
+                                <div className="relative" ref={downloadDropdownRef}>
+                                    <button 
+                                        className="text-green-500 hover:text-green-700 text-sm px-2 py-1 border border-green-300 rounded hover:bg-green-50 transition-colors flex items-center"
+                                        onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
+                                    >
+                                        Download
+                                        <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {showDownloadDropdown && (
+                                        <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-300 z-10">
+                                            <button
+                                                onClick={() => {
+                                                    handleDownloadCsv();
+                                                    setShowDownloadDropdown(false);
+                                                }}
+                                                className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-md"
+                                            >
+                                                CSV
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    handleDownloadJson();
+                                                    setShowDownloadDropdown(false);
+                                                }}
+                                                className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-md"
+                                            >
+                                                JSON
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

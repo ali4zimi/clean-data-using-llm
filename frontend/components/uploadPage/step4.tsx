@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
     useReactTable,
     getCoreRowModel,
@@ -23,12 +23,14 @@ interface Step4Props {
 }
 
 export default function Step4({ processedData, columnOrder, onComplete, onColumnOrderChange, showFullTable: propShowFullTable, onShowFullTableChange }: Step4Props) {
-    const [tableName, setTableName] = useState('vocabulary');
+    const [tableName, setTableName] = useState('');
     const [sqlQuery, setSqlQuery] = useState('');
     const [showQuery, setShowQuery] = useState(false);
     const [localColumnOrder, setLocalColumnOrder] = useState<ColumnOrderState>(columnOrder || []);
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
     const [sorting, setSorting] = useState<SortingState>([]);
+    const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
+    const downloadDropdownRef = useRef<HTMLDivElement>(null);
 
     // Use shared showFullTable state from parent, with fallback to local state
     const showFullTable = propShowFullTable ?? false;
@@ -74,6 +76,22 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
             }
         }
     }, [processedData, columnOrder]);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target as Node)) {
+                setShowDownloadDropdown(false);
+            }
+        }
+
+        if (showDownloadDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => {
+                document.removeEventListener('mousedown', handleClickOutside);
+            };
+        }
+    }, [showDownloadDropdown]);
 
     const table = useReactTable({
         data: tableData,
@@ -172,7 +190,36 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${tableName}_data.csv`;
+        a.download = `processed_data.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    };
+
+    const downloadJSON = () => {
+        if (!processedData || processedData.length === 0) return;
+
+        // Use the current column order for JSON export
+        const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+        const originalHeaders = processedData[0];
+        const rows = processedData.slice(1);
+
+        // Convert to JSON format with ordered columns
+        const jsonData = rows.map(row => {
+            const obj: any = {};
+            orderedHeaders.forEach(header => {
+                const originalIndex = originalHeaders.indexOf(header);
+                obj[header] = originalIndex !== -1 ? row[originalIndex] || '' : '';
+            });
+            return obj;
+        });
+
+        const jsonContent = JSON.stringify(jsonData, null, 2);
+        
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `processed_data.json`;
         a.click();
         window.URL.revokeObjectURL(url);
     };
@@ -185,11 +232,6 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
                 <>
                     <p className="mb-4 text-green-600">
                         Generate SQL queries to insert your processed data into a database.
-                        {columnOrder && columnOrder.length > 0 && (
-                            <span className="block text-sm text-gray-600 mt-1">
-                                ✓ Using your custom column order from Step 3
-                            </span>
-                        )}
                     </p>
                     
                     <div className="mb-4">
@@ -202,7 +244,7 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
                             className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             value={tableName}
                             onChange={(e) => setTableName(e.target.value)}
-                            placeholder="Enter table name"
+                            placeholder="Enter table name (e.g., customers)"
                         />
                     </div>
 
@@ -221,12 +263,39 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
                                 >
                                     {showFullTable ? 'Hide Table' : 'View Table'}
                                 </button>
-                                <button
-                                    onClick={downloadCSV}
-                                    className="text-green-500 hover:text-green-700 text-sm px-2 py-1 border border-green-300 rounded hover:bg-green-50 transition-colors"
-                                >
-                                    Download CSV
-                                </button>
+                                <div className="relative" ref={downloadDropdownRef}>
+                                    <button 
+                                        className="text-green-500 hover:text-green-700 text-sm px-2 py-1 border border-green-300 rounded hover:bg-green-50 transition-colors flex items-center"
+                                        onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
+                                    >
+                                        Download
+                                        <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {showDownloadDropdown && (
+                                        <div className="absolute right-0 mt-1 w-24 bg-white rounded-md shadow-lg border border-gray-300 z-10">
+                                            <button
+                                                onClick={() => {
+                                                    downloadCSV();
+                                                    setShowDownloadDropdown(false);
+                                                }}
+                                                className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-md"
+                                            >
+                                                CSV
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    downloadJSON();
+                                                    setShowDownloadDropdown(false);
+                                                }}
+                                                className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-md"
+                                            >
+                                                JSON
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
