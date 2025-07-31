@@ -42,6 +42,9 @@ def clean_with_ai():
 
     if not user_prompt or not extracted_text:
         return jsonify({'error': 'Missing required fields: user_prompt and extracted_text'}), 400
+    
+    if not user_api_key:
+        return jsonify({'error': 'API key is required. Please provide user_api_key in request or set GEMINI_API_KEY environment variable'}), 400
 
     # Create full prompt
     prompt = f"""{user_prompt}
@@ -69,5 +72,11 @@ def clean_with_ai():
 
         return jsonify({'message': 'Data cleaned successfully', 'content': content}), 200
         
+    except ValueError as e:
+        # Handle API key validation errors
+        if "API key" in str(e):
+            return jsonify({'error': str(e)}), 401
+        else:
+            return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': f'Error processing with AI: {str(e)}'}), 500
