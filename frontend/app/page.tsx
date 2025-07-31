@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import Step1 from '@/components/uploadPage/step1';
 import Step2 from '@/components/uploadPage/step2';
 import Step3 from '@/components/uploadPage/step3';
@@ -103,7 +104,6 @@ export default function UploadPage() {
                         isExtracting={isExtracting}
                         onTextReady={(text: string) => {
                             setExtractedText(text);
-                            updateStepStatus(1, 'complete');
                         }}
                         onExtractionStart={() => {
                             setIsExtracting(true);
@@ -284,6 +284,7 @@ export default function UploadPage() {
                                 setShowFullTableStep3(false);
                                 setShowFullTableStep4(false);
                                 setSteps(steps.map(step => ({ ...step, status: 'incomplete' })));
+                                toast.success('Process restarted - ready for new upload');
                             }}
                         >
                             Start New Process

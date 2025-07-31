@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 interface Step2Props {
     uploadedFile: File | null;
@@ -78,8 +79,11 @@ export default function Step2({
                 const extractedText = result.text || "";
                 onTextReady(extractedText);
                 onExtractionComplete(extractedText);
+                toast.success('Text extracted successfully!');
             } catch (error) {
                 console.error('PDF extraction error:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Failed to extract text from PDF';
+                toast.error(errorMessage);
                 onExtractionComplete("");
             }
         }
@@ -92,6 +96,7 @@ export default function Step2({
             onTextReady(extractedText);
         } catch (error) {
             console.error('Error loading text:', error);
+            toast.error('Failed to load text content');
         }
     };
 

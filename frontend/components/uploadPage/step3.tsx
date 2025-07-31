@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import toast from 'react-hot-toast';
 import {
     useReactTable,
     getCoreRowModel,
@@ -62,9 +63,12 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
                 if (response.ok) {
                     const data = await response.json();
                     setPromptTemplates(data.templates || []);
+                } else {
+                    throw new Error('Failed to fetch prompt templates');
                 }
             } catch (error) {
                 console.error('Error fetching prompt templates:', error);
+                toast.error('Failed to load prompt templates');
             } finally {
                 setLoadingTemplates(false);
             }
@@ -77,7 +81,7 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
     const handleTemplateSelect = (templateId: string) => {
         setSelectedTemplate(templateId);
         if (templateId === '') {
-            // Custom template selected, don't change the prompt
+            // No template selected, keep current prompt
             return;
         }
         
@@ -267,12 +271,17 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
             }
 
             const data = await response.json();
+
+            console.log('Processed data:', data);
             
             
-            onProcessingComplete(data.cleaned_data, columnOrder.length > 0 ? columnOrder : undefined);
+            onProcessingComplete(data.content, columnOrder.length > 0 ? columnOrder : undefined);
             setProcessingMessage('Processing completed successfully!');
+            toast.success('Data processed successfully with AI!');
         } catch (error) {
-            setProcessingMessage(`Error during processing: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            const errorMessage = `Error during processing: ${error instanceof Error ? error.message : 'Unknown error'}`;
+            setProcessingMessage(errorMessage);
+            toast.error(error instanceof Error ? error.message : 'Failed to process data with AI');
             onProcessingComplete(null);
         }
     };
@@ -337,7 +346,7 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
                     onChange={(e) => handleTemplateSelect(e.target.value)}
                     disabled={loadingTemplates}
                 >
-                    <option value="">Custom Prompt</option>
+                    <option value="">Select a template...</option>
                     {promptTemplates.map((template) => (
                         <option key={template.id} value={template.id.toString()}>
                             {template.name}

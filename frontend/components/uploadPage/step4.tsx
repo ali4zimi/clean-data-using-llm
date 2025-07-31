@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import toast from 'react-hot-toast';
 import {
     useReactTable,
     getCoreRowModel,
@@ -120,108 +121,146 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
     });
     
     const generateInsertQuery = () => {
-        if (!processedData || processedData.length === 0) return;
-        
-        // Use the current column order (either from Step3 or local reordering)
-        const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
-        const rows = processedData.slice(1);
-        
-        // Create table structure using ordered headers
-        const tableStructure = `-- Create table structure\nCREATE TABLE IF NOT EXISTS ${tableName} (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n${orderedHeaders.map(header => `    ${header.toLowerCase().replace(/\s+/g, '_')} TEXT`).join(',\n')}\n);\n\n`;
-        
-        // Create insert statements using ordered headers
-        const insertStatements = rows.map(row => {
-            // Map the row data according to the ordered headers
-            const originalHeaders = processedData[0];
-            const orderedValues = orderedHeaders.map(header => {
-                const originalIndex = originalHeaders.indexOf(header);
-                return originalIndex !== -1 ? row[originalIndex] || '' : '';
-            });
+        if (!processedData || processedData.length === 0 || !tableName.trim()) {
+            toast.error('Please provide a table name and ensure data is available');
+            return;
+        }
+
+        try {
+            // Use the current column order (either from Step3 or local reordering)
+            const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+            const rows = processedData.slice(1);
             
-            const values = orderedValues.map(cell => `'${cell.replace(/'/g, "''")}'`).join(', ');
-            return `INSERT INTO ${tableName} (${orderedHeaders.map(h => h.toLowerCase().replace(/\s+/g, '_')).join(', ')}) VALUES (${values});`;
-        }).join('\n');
-        
-        const fullQuery = tableStructure + insertStatements;
-        setSqlQuery(fullQuery);
-        setShowQuery(true);
+            // Create table structure using ordered headers
+            const tableStructure = `-- Create table structure\nCREATE TABLE IF NOT EXISTS ${tableName} (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n${orderedHeaders.map(header => `    ${header.toLowerCase().replace(/\s+/g, '_')} TEXT`).join(',\n')}\n);\n\n`;
+            
+            // Create insert statements using ordered headers
+            const insertStatements = rows.map(row => {
+                // Map the row data according to the ordered headers
+                const originalHeaders = processedData[0];
+                const orderedValues = orderedHeaders.map(header => {
+                    const originalIndex = originalHeaders.indexOf(header);
+                    return originalIndex !== -1 ? row[originalIndex] || '' : '';
+                });
+                
+                const values = orderedValues.map(cell => `'${cell.replace(/'/g, "''")}'`).join(', ');
+                return `INSERT INTO ${tableName} (${orderedHeaders.map(h => h.toLowerCase().replace(/\s+/g, '_')).join(', ')}) VALUES (${values});`;
+            }).join('\n');
+            
+            const fullQuery = tableStructure + insertStatements;
+            setSqlQuery(fullQuery);
+            setShowQuery(true);
+            toast.success('SQL query generated successfully!');
+        } catch (error) {
+            console.error('Error generating SQL:', error);
+            toast.error('Failed to generate SQL query');
+        }
     };
 
     const copyToClipboard = () => {
-        navigator.clipboard.writeText(sqlQuery);
-        alert('SQL query copied to clipboard!');
+        try {
+            navigator.clipboard.writeText(sqlQuery);
+            toast.success('SQL query copied to clipboard!');
+        } catch (error) {
+            console.error('Error copying to clipboard:', error);
+            toast.error('Failed to copy to clipboard');
+        }
     };
 
     const downloadSQLFile = () => {
-        const blob = new Blob([sqlQuery], { type: 'text/sql' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${tableName}_insert.sql`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+        try {
+            const blob = new Blob([sqlQuery], { type: 'text/sql' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${tableName}_insert.sql`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            toast.success('SQL file downloaded successfully!');
+        } catch (error) {
+            console.error('Error downloading SQL file:', error);
+            toast.error('Failed to download SQL file');
+        }
     };
 
     const downloadCSV = () => {
-        if (!processedData || processedData.length === 0) return;
+        if (!processedData || processedData.length === 0) {
+            toast.error('No data available to download');
+            return;
+        }
 
-        // Use the current column order for CSV export
-        const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
-        const originalHeaders = processedData[0];
-        const rows = processedData.slice(1);
+        try {
+            // Use the current column order for CSV export
+            const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+            const originalHeaders = processedData[0];
+            const rows = processedData.slice(1);
 
-        // Reorder data according to current column order
-        const reorderedData = [
-            orderedHeaders,
-            ...rows.map(row => 
-                orderedHeaders.map(header => {
-                    const originalIndex = originalHeaders.indexOf(header);
-                    return originalIndex !== -1 ? row[originalIndex] || '' : '';
-                })
-            )
-        ];
+            // Reorder data according to current column order
+            const reorderedData = [
+                orderedHeaders,
+                ...rows.map(row => 
+                    orderedHeaders.map(header => {
+                        const originalIndex = originalHeaders.indexOf(header);
+                        return originalIndex !== -1 ? row[originalIndex] || '' : '';
+                    })
+                )
+            ];
 
-        // Convert to CSV
-        const csvContent = reorderedData
-            .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-            .join('\n');
+            // Convert to CSV
+            const csvContent = reorderedData
+                .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                .join('\n');
 
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `processed_data.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `processed_data.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            toast.success('CSV file downloaded successfully!');
+        } catch (error) {
+            console.error('Error downloading CSV:', error);
+            toast.error('Failed to download CSV file');
+        }
     };
 
     const downloadJSON = () => {
-        if (!processedData || processedData.length === 0) return;
+        if (!processedData || processedData.length === 0) {
+            toast.error('No data available to download');
+            return;
+        }
 
-        // Use the current column order for JSON export
-        const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
-        const originalHeaders = processedData[0];
-        const rows = processedData.slice(1);
+        try {
+            // Use the current column order for JSON export
+            const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+            const originalHeaders = processedData[0];
+            const rows = processedData.slice(1);
 
-        // Convert to JSON format with ordered columns
-        const jsonData = rows.map(row => {
-            const obj: any = {};
-            orderedHeaders.forEach(header => {
-                const originalIndex = originalHeaders.indexOf(header);
-                obj[header] = originalIndex !== -1 ? row[originalIndex] || '' : '';
+            // Convert to JSON format with ordered columns
+            const jsonData = rows.map(row => {
+                const obj: any = {};
+                orderedHeaders.forEach(header => {
+                    const originalIndex = originalHeaders.indexOf(header);
+                    obj[header] = originalIndex !== -1 ? row[originalIndex] || '' : '';
+                });
+                return obj;
             });
-            return obj;
-        });
 
-        const jsonContent = JSON.stringify(jsonData, null, 2);
-        
-        const blob = new Blob([jsonContent], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `processed_data.json`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+            const jsonContent = JSON.stringify(jsonData, null, 2);
+            
+            const blob = new Blob([jsonContent], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `processed_data.json`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            toast.success('JSON file downloaded successfully!');
+        } catch (error) {
+            console.error('Error downloading JSON:', error);
+            toast.error('Failed to download JSON file');
+        }
     };
 
     return (

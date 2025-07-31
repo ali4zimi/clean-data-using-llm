@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import toast from 'react-hot-toast';
 
 interface DropzoneProps {
     files: File[];
@@ -14,7 +15,28 @@ export default function Dropzone({ files, onFilesChange, isUploading, onUploadSt
     const [isDragging, setIsDragging] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
 
+    const validateFile = (file: File): boolean => {
+        // Check file type
+        if (file.type !== 'application/pdf') {
+            toast.error('Please upload a PDF file only');
+            return false;
+        }
+        
+        // Check file size (e.g., max 10MB)
+        const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+        if (file.size > maxSize) {
+            toast.error('File size must be less than 10MB');
+            return false;
+        }
+        
+        return true;
+    };
+
     const uploadFile = async (file: File) => {
+        if (!validateFile(file)) {
+            return;
+        }
+
         onUploadStart();
         setUploadError(null);
 
@@ -35,9 +57,12 @@ export default function Dropzone({ files, onFilesChange, isUploading, onUploadSt
             const updatedFiles = [...files, file];
             onFilesChange(updatedFiles);
             onUploadComplete([file]);
+            toast.success('File uploaded successfully!');
         } catch (error) {
             console.error('Upload error:', error);
-            setUploadError('Failed to upload file. Please try again.');
+            const errorMessage = 'Failed to upload file. Please try again.';
+            setUploadError(errorMessage);
+            toast.error(errorMessage);
             onUploadComplete([]);
         }
     };
