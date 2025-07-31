@@ -1,36 +1,137 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Data Cleaning Pipeline Frontend
 
-## Getting Started
+A Next.js-based frontend application for data cleaning pipeline that extracts text from PDFs, processes it with AI, and stores structured data in a database.
 
-First, run the development server:
+## Features
+
+- **PDF Upload**: Upload PDF documents for text extraction
+- **Text Extraction**: Automated text extraction from uploaded PDFs
+- **AI Processing**: Clean and structure text data using AI providers (Gemini)
+- **Database Integration**: Store processed data in PostgreSQL database (to be implemented as Docker service)
+- **Interactive UI**: Step-by-step wizard interface with progress tracking
+
+## Prerequisites
+
+- Node.js 20 or higher
+- npm or yarn package manager
+- Backend API server (for AI processing and database operations)
+
+## Installation
+
+1. **Clone the repository** (if not already done):
+   ```bash
+   git clone <repository-url>
+   cd frontend
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**:
+   Create a `.env.local` file in the root directory:
+   ```env
+   BACKEND_URL=http://localhost:8000
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+   
+   **Note**: You can also provide your API key directly in the application interface when sending prompts instead of using the environment variable.
+
+## Usage
+
+### Development Mode
+
+Start the development server with hot-reload:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application will be available at `http://localhost:3000`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Production Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Build and start the production version:
 
-## Learn More
+```bash
+npm run build
+npm start
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Docker Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Build and run using Docker:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+docker build -t data-cleaning-frontend .
+docker run -p 3000:3000 data-cleaning-frontend
+```
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+├── app/
+│   ├── api/                  # API routes
+│   │   ├── clean-with-ai/    # AI processing endpoint
+│   │   ├── extract-text/     # Text extraction endpoint
+│   │   ├── prompt-templates/ # Template management
+│   │   └── upload-file/      # File upload handling
+│   ├── layout.tsx            # Root layout
+│   └── page.tsx              # Main upload wizard
+├── components/
+│   └── uploadPage/           # Step components
+│       ├── step1.tsx         # PDF upload
+│       ├── step2.tsx         # Text extraction
+│       ├── step3.tsx         # AI processing
+│       └── step4.tsx         # Database integration
+└── lib/
+    └── db.ts              # Database utilities
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Configuration
+
+The application requires a backend API server to handle:
+- PDF text extraction
+- AI processing (Gemini API integration)
+- Database operations
+
+Make sure your backend server is running and accessible via the `BACKEND_URL` environment variable.
+
+### API Key Configuration
+
+You have two options for providing your AI provider API key:
+
+1. **Environment Variable**: Add `GEMINI_API_KEY` to your `.env.local` file (recommended for development)
+2. **Runtime Input**: Enter your API key directly in the application interface when prompted during AI processing
+
+This flexibility allows you to use the application without pre-configuring API keys if preferred.
+
+## Technologies Used
+
+- **Next.js 15** - React framework with App Router
+- **TypeScript** - Type-safe JavaScript
+- **Tailwind CSS** - Utility-first CSS framework
+- **PostgreSQL** - Database storage (to be implemented as Docker service)
+- **Gemini AI** - Text processing and structuring
+- **React Table** - Data table components
+
+## Development Scripts
+
+- `npm run dev` - Start development server with Turbopack
+- `npm run build` - Build production application
+- `npm start` - Start production server
+- `npm run lint` - Run ESLint
+
+## API Integration
+
+The frontend communicates with a backend API for:
+- File upload and text extraction
+- AI-powered data cleaning
+- Database operations
+
+You can configure your AI provider (Gemini) API key either:
+- In the `.env.local` file as `GEMINI_API_KEY`
+- Directly in the application interface when processing data
+
+This provides flexibility for different deployment scenarios and user preferences.
