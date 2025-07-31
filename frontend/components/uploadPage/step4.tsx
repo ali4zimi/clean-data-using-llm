@@ -31,6 +31,10 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
     const [sorting, setSorting] = useState<SortingState>([]);
     const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
+    const [queryType, setQueryType] = useState<'insert' | 'ai'>('insert');
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [apiKey, setApiKey] = useState('');
+    const [aiProvider, setAiProvider] = useState<'openai' | 'anthropic' | 'google'>('openai');
     const downloadDropdownRef = useRef<HTMLDivElement>(null);
 
     // Use shared showFullTable state from parent, with fallback to local state
@@ -157,6 +161,79 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
         }
     };
 
+    const generateAIQuery = async () => {
+        if (!processedData || processedData.length === 0 || !tableName.trim()) {
+            toast.error('Please provide a table name and ensure data is available');
+            return;
+        }
+
+        if (!aiPrompt.trim()) {
+            toast.error('Please provide a prompt for AI query generation');
+            return;
+        }
+
+        if (!apiKey.trim()) {
+            toast.error('Please provide an API key');
+            return;
+        }
+
+        try {
+            toast.loading('Generating AI query...', { id: 'ai-query' });
+            
+            // Use the current column order
+            const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+            const rows = processedData.slice(1);
+            
+            // Prepare sample data for AI analysis (first 5 rows)
+            const sampleData = rows.slice(0, 5).map(row => {
+                const originalHeaders = processedData[0];
+                const orderedValues = orderedHeaders.map(header => {
+                    const originalIndex = originalHeaders.indexOf(header);
+                    return originalIndex !== -1 ? row[originalIndex] || '' : '';
+                });
+                return orderedValues;
+            });
+
+            const payload = {
+                tableName,
+                headers: orderedHeaders,
+                sampleData,
+                totalRows: rows.length,
+                userPrompt: aiPrompt.trim(),
+                apiKey: apiKey.trim(),
+                provider: aiProvider
+            };
+
+            const response = await fetch('/api/generate-ai-query', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate AI query');
+            }
+
+            const result = await response.json();
+            setSqlQuery(result.query);
+            setShowQuery(true);
+            toast.success('AI query generated successfully!', { id: 'ai-query' });
+        } catch (error) {
+            console.error('Error generating AI query:', error);
+            toast.error('Failed to generate AI query', { id: 'ai-query' });
+        }
+    };
+
+    const handleGenerateQuery = () => {
+        if (queryType === 'insert') {
+            generateInsertQuery();
+        } else {
+            generateAIQuery();
+        }
+    };
+
     const copyToClipboard = () => {
         try {
             navigator.clipboard.writeText(sqlQuery);
@@ -265,28 +342,10 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
 
     return (
         <div id="step-4-content" className="w-full m-auto p-4 bg-white rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-4">Database Integration</h2>
+            <h2 className="text-xl font-semibold mb-4">Advanced Query Generation</h2>
             
             {processedData && Array.isArray(processedData) && processedData.length > 0 ? (
-                <>
-                    <p className="mb-4 text-green-600">
-                        Generate SQL queries to insert your processed data into a database.
-                    </p>
-                    
-                    <div className="mb-4">
-                        <label htmlFor="table-name" className="block text-sm font-medium text-gray-700 mb-2">
-                            Table Name:
-                        </label>
-                        <input
-                            type="text"
-                            id="table-name"
-                            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={tableName}
-                            onChange={(e) => setTableName(e.target.value)}
-                            placeholder="Enter table name (e.g., customers)"
-                        />
-                    </div>
-
+                <>  
                     <div className="mb-4">
                         <h3 className="text-sm font-medium text-gray-700 mb-2">Data Preview:</h3>
                         <div className="flex items-center justify-between border rounded p-2 bg-green-50 border-green-200">
@@ -338,6 +397,102 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
                             </div>
                         </div>
                     </div>
+
+
+
+                    <div className="mb-4">
+                        <label htmlFor="table-name" className="block text-sm font-medium text-gray-700 mb-2">
+                            Table Name:
+                        </label>
+                        <input
+                            type="text"
+                            id="table-name"
+                            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={tableName}
+                            onChange={(e) => setTableName(e.target.value)}
+                            placeholder="Enter table name (e.g., customers)"
+                        />
+                    </div>
+
+                    <div className="mb-4">
+                        <label htmlFor="query-type" className="block text-sm font-medium text-gray-700 mb-2">
+                            Query Generation Method:
+                        </label>
+                        <select
+                            id="query-type"
+                            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={queryType}
+                            onChange={(e) => setQueryType(e.target.value as 'insert' | 'ai')}
+                        >
+                            <option value="insert">Standard INSERT Query</option>
+                            <option value="ai">AI-Generated Custom Query</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                            {queryType === 'insert' 
+                                ? 'Generate standard SQL INSERT statements for your data'
+                                : 'Use AI to create custom SQL queries based on your specific requirements'
+                            }
+                        </p>
+                    </div>
+
+                    {queryType === 'ai' && (
+                        <div className="mb-4">
+                            <label htmlFor="ai-prompt" className="block text-sm font-medium text-gray-700 mb-2">
+                                AI Prompt:
+                            </label>
+                            <textarea
+                                id="ai-prompt"
+                                className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                rows={4}
+                                value={aiPrompt}
+                                onChange={(e) => setAiPrompt(e.target.value)}
+                                placeholder="Describe what kind of SQL query you want to generate. For example:
+• Create a table with proper data types and constraints
+• Add indexes for better performance
+• Include validation rules for email and phone fields
+• Create a view that joins multiple concepts
+• Generate stored procedures for data manipulation"
+                            />
+                            <div className="flex justify-between items-center mt-2">
+                                <p className="text-xs text-gray-500">
+                                    Be specific about your requirements. The AI will analyze your data and create SQL accordingly.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {queryType === 'ai' && (
+                        <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="ai-provider" className="block text-sm font-medium text-gray-700 mb-2">
+                                    AI Provider:
+                                </label>
+                                <select
+                                    id="ai-provider"
+                                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={aiProvider}
+                                    onChange={(e) => setAiProvider(e.target.value as 'openai' | 'anthropic' | 'google')}
+                                >
+                                    <option value="openai">OpenAI (GPT-4)</option>
+                                    <option value="anthropic">Anthropic (Claude)</option>
+                                    <option value="google">Google (Gemini)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="api-key" className="block text-sm font-medium text-gray-700 mb-2">
+                                    API Key:
+                                </label>
+                                <input
+                                    type="text"
+                                    id="api-key"
+                                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={apiKey}
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                    placeholder="Enter your API key"
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     {showFullTable && (
                         <div className="mb-4">
@@ -429,11 +584,16 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
                     
                     <div className="space-y-3">
                         <button 
-                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
-                            onClick={generateInsertQuery}
-                            disabled={!tableName.trim()}
+                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors flex items-center disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            onClick={handleGenerateQuery}
+                            disabled={!tableName.trim() || (queryType === 'ai' && (!aiPrompt.trim() || !apiKey.trim()))}
                         >
-                            Generate SQL Insert Query
+                            {queryType === 'ai' && (
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                            )}
+                            {queryType === 'insert' ? 'Generate SQL Insert Query' : 'Generate AI Custom Query'}
                         </button>
 
                         {showQuery && sqlQuery && (
@@ -461,14 +621,7 @@ export default function Step4({ processedData, columnOrder, onComplete, onColumn
                                     className="w-full h-64 p-3 bg-gray-50 border border-gray-300 rounded text-sm font-mono text-gray-700 resize-none"
                                 />
                             </div>
-                        )}
-
-                        <button 
-                            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors"
-                            onClick={onComplete}
-                        >
-                            Complete Process
-                        </button>
+                        )}  
                     </div>
                 </>
             ) : (

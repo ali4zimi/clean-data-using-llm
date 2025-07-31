@@ -183,21 +183,6 @@ export default function Step2({
                         ></div>
                     </div>
                     
-                    {/* Status Message */}
-                    <div className="text-sm">
-                        {!hasStartedExtraction ? (
-                            <p className="text-gray-600">Click "Extract Text" to start processing your PDF</p>
-                        ) : isExtracting ? (
-                            <div className="flex items-center text-blue-600">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
-                                <span>Extracting text from PDF...</span>
-                            </div>
-                        ) : textFile ? (
-                            <p className="text-green-600">✓ Text extraction completed successfully!</p>
-                        ) : (
-                            <p className="text-red-600">✗ Text extraction failed. Please try again.</p>
-                        )}
-                    </div>
                 </div>
             )}
 

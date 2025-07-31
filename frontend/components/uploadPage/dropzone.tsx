@@ -13,7 +13,6 @@ interface DropzoneProps {
 
 export default function Dropzone({ files, onFilesChange, isUploading, onUploadStart, onUploadComplete }: DropzoneProps) {
     const [isDragging, setIsDragging] = useState(false);
-    const [uploadError, setUploadError] = useState<string | null>(null);
 
     const validateFile = (file: File): boolean => {
         // Check file type
@@ -38,7 +37,6 @@ export default function Dropzone({ files, onFilesChange, isUploading, onUploadSt
         }
 
         onUploadStart();
-        setUploadError(null);
 
         try {
             const formData = new FormData();
@@ -61,7 +59,6 @@ export default function Dropzone({ files, onFilesChange, isUploading, onUploadSt
         } catch (error) {
             console.error('Upload error:', error);
             const errorMessage = 'Failed to upload file. Please try again.';
-            setUploadError(errorMessage);
             toast.error(errorMessage);
             onUploadComplete([]);
         }
@@ -133,12 +130,6 @@ export default function Dropzone({ files, onFilesChange, isUploading, onUploadSt
                     <p className="text-sm text-gray-400 mt-2">Accepted: PDF file only</p>
                 </div>
             </div>
-
-            {uploadError && (
-                <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                    {uploadError}
-                </div>
-            )}
 
             {files.length > 0 && (
                 <div className="mt-6">

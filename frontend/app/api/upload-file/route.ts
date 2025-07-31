@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
 
             const result = await backendResponse.json();
 
+            // Simulate a delay for demonstration purposes
             // await new Promise(resolve => setTimeout(resolve, 2000));
 
             return NextResponse.json({

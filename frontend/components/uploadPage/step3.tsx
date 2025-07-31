@@ -234,22 +234,21 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
 
     const handleProcess = async () => {
         if (!editableText) {
-            setProcessingMessage('No text to process. Please complete text extraction first.');
+            toast.error('No text to process. Please complete text extraction first.');
             return;
         }
 
         if (!prompt.trim()) {
-            setProcessingMessage('Please enter a prompt for AI processing.');
+            toast.error('Please enter a prompt for AI processing.');
             return;
         }
 
         if (!apiKey.trim()) {
-            setProcessingMessage('Please enter your API key.');
+            toast.error('Please enter your API key.');
             return;
         }
 
         onProcessingStart();
-        setProcessingMessage('Processing text with AI...');
         
         try {
             const response = await fetch('/api/clean-with-ai', {
@@ -267,7 +266,13 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to process text');
+                let errorMessage = 'Failed to process text with AI';
+                
+                if (errorData.error) {
+                    errorMessage = errorData.error;
+                }
+                
+                throw new Error(errorMessage);
             }
 
             const data = await response.json();
@@ -276,12 +281,17 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
             
             
             onProcessingComplete(data.content, columnOrder.length > 0 ? columnOrder : undefined);
-            setProcessingMessage('Processing completed successfully!');
+            setProcessingMessage(''); // Clear any previous messages
             toast.success('Data processed successfully with AI!');
         } catch (error) {
-            const errorMessage = `Error during processing: ${error instanceof Error ? error.message : 'Unknown error'}`;
-            setProcessingMessage(errorMessage);
-            toast.error(error instanceof Error ? error.message : 'Failed to process data with AI');
+            let errorMessage = 'Failed to process data with AI';
+            
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            
+            setProcessingMessage(''); // Clear any previous messages
+            toast.error(errorMessage);
             onProcessingComplete(null);
         }
     };
@@ -375,42 +385,38 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
                     }}
                 />
             </div>
-             
-            <div className="mb-4">
-                <label htmlFor="ai-provider" className="block text-sm font-medium text-gray-700 mb-2">
-                    Select AI Provider:
-                </label>
-                <select
-                    id="ai-provider"
-                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={aiProvider}
-                    onChange={(e) => onAiProviderChange(e.target.value)}
-                >
-                    <option value="gemini">Gemini</option>
-                    <option value="openai">OpenAI</option>
-                </select>
-            </div>
+            
+            <div className='mb-4 grid grid-cols-1 md:grid-cols-2 gap-4'>
+                <div className="mb-4">                    
+                    <label htmlFor="ai-provider" className="block text-sm font-medium text-gray-700 mb-2">
+                        AI Provider:
+                    </label>
+                    <select
+                        id="ai-provider"
+                        className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={aiProvider}
+                        onChange={(e) => onAiProviderChange(e.target.value)}
+                    >
+                        <option value="openai">OpenAI (GPT-4)</option>
+                        <option value="gemini">Google (Gemini)</option>
+                    </select>
+                </div>
 
-            <div className="mb-4">
-                <label htmlFor="ai-provider" className="block text-sm font-medium text-gray-700 mb-2">
-                    API Key:
-                </label>
-                <input
-                    type="text"
-                    id="api-key"
-                    placeholder='Enter your API key here'
-                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                />
+                <div className="mb-4">
+                    <label htmlFor="ai-provider" className="block text-sm font-medium text-gray-700 mb-2">
+                        API Key:
+                    </label>
+                    <input
+                        type="text"
+                        id="api-key"
+                        placeholder='Enter your API key here'
+                        className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        // autoComplete="off"
+                    />
+                </div>
             </div>
-
-            <p className="mb-4 text-gray-600">
-                {canProcess 
-                    ? "Ready to process the extracted text with AI."
-                    : "Please complete text extraction, enter a prompt, and provide your API key first."
-                }
-            </p>
             
             <button 
                 className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400"
@@ -419,12 +425,6 @@ export default function Step3({ extractedText, prompt, aiProvider, onPromptChang
             >
                 {isProcessing ? 'Processing...' : 'Start AI Processing'}
             </button>
-
-            {processingMessage && (
-                <p className={`mt-2 ${processingMessage.includes('Error') ? 'text-red-500' : 'text-green-500'}`}>
-                    {processingMessage}
-                </p>
-            )}
 
             {/* Display cleaned data table */}
             {cleanedData && Array.isArray(cleanedData) && cleanedData.length > 0 && (
