@@ -20,12 +20,7 @@ export default function UploadPage() {
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
     const [textFiles, setTextFiles] = useState<string[]>([]);
     const [isExtracting, setIsExtracting] = useState(false);
-    const [prompt, setPrompt] = useState('You are a language learning assistant. Please extract all german words and respective meanings ' +
-        'from the following text, find the meaning in english and also if it is nown find their gender. ' +
-        'Also, classify the words into categories. For example, categorize the words into categories like food, travel, etc.' +
-        '\nIf the word does not have example sentence, leave it blank.' +
-        '\nFormat your response as a CSV with the following structure:' +
-        '\n\nde_word, de_example, de_gender, de_category, en_word, en_example');
+    const [prompt, setPrompt] = useState('');
     const [aiProvider, setAiProvider] = useState('gemini');
     const [extractedText, setExtractedText] = useState('');
     const [processedData, setProcessedData] = useState<string[][] | null>(null);
