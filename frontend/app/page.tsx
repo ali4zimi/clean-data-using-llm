@@ -222,7 +222,7 @@ export default function DataCleaningPipeline() {
   };
 
   return (
-    <main className="w-full min-h-screen bg-gray-100 flex justify-center p-4 md:p-8 pt-8 md:pt-16">
+    <main className="w-full min-h-screen bg-gray-100 flex justify-center p-4 md:p-8 pt-8 md:pt-8">
       <div className='w-full max-w-2xl h-fit flex flex-col gap-3'>
         {/* Step Navigation */}
         <StepNavigation
