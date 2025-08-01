@@ -54,7 +54,7 @@ def clean_with_ai():
 
     try:
         # Process the text with the selected AI provider
-        if ai_provider == 'gemini':
+        if ai_provider == 'google':
             content = AIService.process_with_gemini(user_api_key, prompt)
         elif ai_provider == 'openai':
             content = AIService.process_with_openai(user_api_key, prompt)

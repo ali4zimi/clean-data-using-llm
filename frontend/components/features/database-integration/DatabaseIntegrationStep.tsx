@@ -1,0 +1,409 @@
+'use client';
+
+import React, { useState, useMemo } from 'react';
+import Card from '../../ui/Card';
+import Button from '../../ui/Button';
+import DataTable from '../data-table/DataTable';
+import DataActions from '../data-table/DataActions';
+import QueryTypeSelector from './QueryTypeSelector';
+import SQLQueryDisplay from './SQLQueryDisplay';
+import AIProviderConfig from '../ai-processing/AIProviderConfig';
+import { ColumnDef, ColumnOrderState } from '@tanstack/react-table';
+import toast from 'react-hot-toast';
+
+interface DatabaseIntegrationStepProps {
+  processedData: string[][] | null;
+  columnOrder: string[];
+  tableName: string;
+  queryType: 'insert' | 'ai';
+  aiPrompt: string;
+  dbAiProvider: 'openai' | 'google';
+  dbApiKey: string;
+  onComplete: () => void;
+  onColumnOrderChange?: (newOrder: string[]) => void;
+  onTableNameChange: (name: string) => void;
+  onQueryTypeChange: (type: 'insert' | 'ai') => void;
+  onAiPromptChange: (prompt: string) => void;
+  onDbAiProviderChange: (provider: 'openai' | 'google') => void;
+  onDbApiKeyChange: (key: string) => void;
+  showFullTable?: boolean;
+  onShowFullTableChange?: (show: boolean) => void;
+}
+
+export default function DatabaseIntegrationStep({
+  processedData,
+  columnOrder,
+  tableName,
+  queryType,
+  aiPrompt,
+  dbAiProvider,
+  dbApiKey,
+  onComplete,
+  onColumnOrderChange,
+  onTableNameChange,
+  onQueryTypeChange,
+  onAiPromptChange,
+  onDbAiProviderChange,
+  onDbApiKeyChange,
+  showFullTable = false,
+  onShowFullTableChange
+}: DatabaseIntegrationStepProps) {
+  const [sqlQuery, setSqlQuery] = useState('');
+  const [showQuery, setShowQuery] = useState(false);
+  const [localColumnOrder, setLocalColumnOrder] = useState<ColumnOrderState>(columnOrder || []);
+
+  // Convert 2D array to object array for TanStack Table
+  const tableData = useMemo(() => {
+    if (!processedData || processedData.length < 2) return [];
+    
+    const headers = processedData[0];
+    const rows = processedData.slice(1);
+    
+    return rows.map(row => {
+      const obj: any = {};
+      headers.forEach((header, index) => {
+        obj[header] = row[index] || '';
+      });
+      return obj;
+    });
+  }, [processedData]);
+
+  // Create columns for TanStack Table
+  const columns = useMemo<ColumnDef<any>[]>(() => {
+    if (!processedData || processedData.length === 0) return [];
+    
+    const headers = processedData[0];
+    
+    return headers.map((header) => ({
+      id: header,
+      accessorKey: header,
+      header: header,
+      cell: ({ getValue }) => getValue() || '',
+    }));
+  }, [processedData]);
+
+  const handleColumnOrderChange = (newOrder: ColumnOrderState) => {
+    setLocalColumnOrder(newOrder);
+    if (onColumnOrderChange) {
+      onColumnOrderChange(newOrder);
+    }
+  };
+
+  const generateInsertQuery = () => {
+    if (!processedData || processedData.length === 0 || !tableName.trim()) {
+      toast.error('Please provide a table name and ensure data is available');
+      return;
+    }
+
+    try {
+      const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+      const rows = processedData.slice(1);
+      
+      // Create table structure
+      const tableStructure = `-- Create table structure\nCREATE TABLE IF NOT EXISTS ${tableName} (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n${orderedHeaders.map(header => `    ${header.toLowerCase().replace(/\s+/g, '_')} TEXT`).join(',\n')}\n);\n\n`;
+      
+      // Create insert statements
+      const insertStatements = rows.map(row => {
+        const originalHeaders = processedData[0];
+        const orderedValues = orderedHeaders.map(header => {
+          const originalIndex = originalHeaders.indexOf(header);
+          return originalIndex !== -1 ? row[originalIndex] || '' : '';
+        });
+        
+        const values = orderedValues.map(cell => `'${cell.replace(/'/g, "''")}'`).join(', ');
+        return `INSERT INTO ${tableName} (${orderedHeaders.map(h => h.toLowerCase().replace(/\s+/g, '_')).join(', ')}) VALUES (${values});`;
+      }).join('\n');
+      
+      const fullQuery = tableStructure + insertStatements;
+      setSqlQuery(fullQuery);
+      setShowQuery(true);
+      toast.success('SQL query generated successfully!');
+    } catch (error) {
+      console.error('Error generating SQL:', error);
+      toast.error('Failed to generate SQL query');
+    }
+  };
+
+  const generateAIQuery = async () => {
+    if (!processedData || processedData.length === 0 || !tableName.trim()) {
+      toast.error('Please provide a table name and ensure data is available');
+      return;
+    }
+
+    if (!aiPrompt.trim()) {
+      toast.error('Please provide a prompt for AI query generation');
+      return;
+    }
+
+    if (!dbApiKey.trim()) {
+      toast.error('Please provide an API key');
+      return;
+    }
+
+    try {
+      toast.loading('Generating AI query...', { id: 'ai-query' });
+      
+      const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+      const rows = processedData.slice(1);
+      
+      // Prepare sample data for AI analysis (first 5 rows)
+      const sampleData = rows.slice(0, 5).map(row => {
+        const originalHeaders = processedData[0];
+        const orderedValues = orderedHeaders.map(header => {
+          const originalIndex = originalHeaders.indexOf(header);
+          return originalIndex !== -1 ? row[originalIndex] || '' : '';
+        });
+        return orderedValues;
+      });
+
+      const payload = {
+        tableName,
+        headers: orderedHeaders,
+        sampleData,
+        totalRows: rows.length,
+        userPrompt: aiPrompt.trim(),
+        apiKey: dbApiKey.trim(),
+        provider: dbAiProvider
+      };
+
+      const response = await fetch('/api/generate-ai-query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate AI query');
+      }
+
+      const result = await response.json();
+      setSqlQuery(result.query);
+      setShowQuery(true);
+      toast.success('AI query generated successfully!', { id: 'ai-query' });
+    } catch (error) {
+      console.error('Error generating AI query:', error);
+      toast.error('Failed to generate AI query', { id: 'ai-query' });
+    }
+  };
+
+  const handleGenerateQuery = () => {
+    if (queryType === 'insert') {
+      generateInsertQuery();
+    } else {
+      generateAIQuery();
+    }
+  };
+
+  const copyToClipboard = () => {
+    try {
+      navigator.clipboard.writeText(sqlQuery);
+      toast.success('SQL query copied to clipboard!');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  const downloadSQLFile = () => {
+    try {
+      const blob = new Blob([sqlQuery], { type: 'text/sql' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${tableName}_query.sql`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('SQL file downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading SQL file:', error);
+      toast.error('Failed to download SQL file');
+    }
+  };
+
+  const downloadCSV = () => {
+    if (!processedData || processedData.length === 0) {
+      toast.error('No data available to download');
+      return;
+    }
+
+    try {
+      const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+      const originalHeaders = processedData[0];
+      const rows = processedData.slice(1);
+
+      // Reorder data according to current column order
+      const reorderedData = [
+        orderedHeaders,
+        ...rows.map(row => 
+          orderedHeaders.map(header => {
+            const originalIndex = originalHeaders.indexOf(header);
+            return originalIndex !== -1 ? row[originalIndex] || '' : '';
+          })
+        )
+      ];
+
+      // Convert to CSV
+      const csvContent = reorderedData
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `processed_data.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('CSV file downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading CSV:', error);
+      toast.error('Failed to download CSV file');
+    }
+  };
+
+  const downloadJSON = () => {
+    if (!processedData || processedData.length === 0) {
+      toast.error('No data available to download');
+      return;
+    }
+
+    try {
+      const orderedHeaders = localColumnOrder.length > 0 ? localColumnOrder : processedData[0];
+      const originalHeaders = processedData[0];
+      const rows = processedData.slice(1);
+
+      // Convert to JSON format with ordered columns
+      const jsonData = rows.map(row => {
+        const obj: any = {};
+        orderedHeaders.forEach(header => {
+          const originalIndex = originalHeaders.indexOf(header);
+          obj[header] = originalIndex !== -1 ? row[originalIndex] || '' : '';
+        });
+        return obj;
+      });
+
+      const jsonContent = JSON.stringify(jsonData, null, 2);
+      
+      const blob = new Blob([jsonContent], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `processed_data.json`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('JSON file downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading JSON:', error);
+      toast.error('Failed to download JSON file');
+    }
+  };
+
+  return (
+    <Card title="Advanced Query Generation">
+      {processedData && processedData.length > 0 ? (
+        <>  
+          {/* Data Preview */}
+          <DataActions
+            data={tableData}
+            columnOrder={localColumnOrder}
+            showTable={showFullTable}
+            onShowTableChange={onShowFullTableChange || (() => {})}
+            onDownloadCSV={downloadCSV}
+            onDownloadJSON={downloadJSON}
+            itemCount={tableData.length}
+            fileName="processed_data.csv"
+          />
+
+          {/* Data Table */}
+          {showFullTable && (
+            <DataTable
+              data={tableData}
+              columns={columns}
+              columnOrder={localColumnOrder}
+              onColumnOrderChange={handleColumnOrderChange}
+            />
+          )}
+
+          {/* Table Name Input */}
+          <div className="mb-4">
+            <label htmlFor="table-name" className="block text-sm font-medium text-gray-700 mb-2">
+              Table Name:
+            </label>
+            <input
+              type="text"
+              id="table-name"
+              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={tableName}
+              onChange={(e) => onTableNameChange(e.target.value)}
+              placeholder="Enter table name (e.g., customers)"
+            />
+          </div>
+
+          {/* Query Type Selector */}
+          <QueryTypeSelector
+            queryType={queryType}
+            onQueryTypeChange={onQueryTypeChange}
+          />
+
+          {/* AI Query Configuration */}
+          {queryType === 'ai' && (
+            <>
+              <div className="mb-4">
+                <label htmlFor="ai-prompt" className="block text-sm font-medium text-gray-700 mb-2">
+                  AI Prompt:
+                </label>
+                <textarea
+                  id="ai-prompt"
+                  className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={4}
+                  value={aiPrompt}
+                  onChange={(e) => onAiPromptChange(e.target.value)}
+                  placeholder="Describe what kind of SQL query you want to generate. For example:
+• Create a table with proper data types and constraints
+• Add indexes for better performance
+• Include validation rules for email and phone fields
+• Create a view that joins multiple concepts
+• Generate stored procedures for data manipulation"
+                />
+              </div>
+
+              <AIProviderConfig
+                provider={dbAiProvider}
+                apiKey={dbApiKey}
+                onProviderChange={(provider) => onDbAiProviderChange(provider as 'openai' | 'google')}
+                onApiKeyChange={onDbApiKeyChange}
+              />
+            </>
+          )}
+
+
+          {/* Generate Query Button */}
+          <div className="space-y-3">
+            <Button 
+              onClick={handleGenerateQuery}
+              disabled={!tableName.trim() || (queryType === 'ai' && (!aiPrompt.trim() || !dbApiKey.trim()))}
+              className="w-full"
+            >
+              {queryType === 'insert' ? 'Generate SQL Insert Query' : 'Generate AI Custom Query'}
+            </Button>
+
+            {/* SQL Query Display */}
+            {showQuery && sqlQuery && (
+              <SQLQueryDisplay
+                query={sqlQuery}
+                onCopy={copyToClipboard}
+                onDownload={downloadSQLFile}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        <p className="mb-4 text-gray-600">
+          No processed data available. Please complete the previous steps first.
+        </p>
+      )}
+    </Card>
+  );
+}
