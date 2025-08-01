@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-"""
-Test script to verify API key handling for both environment and frontend scenarios
-"""
+
+# Test script to verify API key handling for both environment and frontend scenarios
 import os
 import json
 import requests
@@ -19,8 +17,9 @@ def test_environment_api_key():
 def test_frontend_api_key_simulation():
     """Simulate frontend sending API key"""
     # This would be the payload sent from frontend
+    test_api_key = os.getenv('GEMINI_API_KEY')  # Get from environment
     test_payload = {
-        "user_api_key": "your_api_key_here",  # Placeholder - replace with actual key
+        "user_api_key": test_api_key,
         "user_prompt": "Extract customer data",
         "extracted_text": "Sample text for testing",
         "ai_provider": "gemini"

@@ -1,10 +1,12 @@
-#!/usr/bin/env python3
-"""
-Test script to simulate frontend API requests with different API key scenarios
-"""
+# Test script to simulate frontend API requests with different API key scenarios
 import requests
 import json
 import time
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 BASE_URL = "http://localhost:5000"
 
@@ -29,9 +31,12 @@ def test_api_endpoint(endpoint, payload, description):
 def main():
     print("=== Frontend API Key Integration Test ===")
     
+    # Get API key from environment
+    test_api_key = os.getenv('GEMINI_API_KEY')
+    
     # Test 1: API key from frontend (should work)
     test1_payload = {
-        "user_api_key": "your_api_key_here",  # Replace with actual API key
+        "user_api_key": test_api_key,
         "user_prompt": "Extract customer data with fields: name, email, phone",
         "extracted_text": "John Doe, email: john@example.com, phone: 123-456-7890",
         "ai_provider": "gemini"
@@ -72,7 +77,7 @@ def main():
     
     # Test 4: Missing required fields
     test4_payload = {
-        "user_api_key": "your_api_key_here",  # Replace with actual API key
+        "user_api_key": test_api_key,
         "user_prompt": "Extract data"
         # Missing extracted_text
     }
