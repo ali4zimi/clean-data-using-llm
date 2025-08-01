@@ -20,7 +20,7 @@ def test_frontend_api_key_simulation():
     """Simulate frontend sending API key"""
     # This would be the payload sent from frontend
     test_payload = {
-        "user_api_key": "AIzaSyDF2GrZUUyPk8naOxtijDvLnXNK-7B9vYM",  # Example key
+        "user_api_key": "your_api_key_here",  # Placeholder - replace with actual key
         "user_prompt": "Extract customer data",
         "extracted_text": "Sample text for testing",
         "ai_provider": "gemini"

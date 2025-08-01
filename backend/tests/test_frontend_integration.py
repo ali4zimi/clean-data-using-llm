@@ -31,7 +31,7 @@ def main():
     
     # Test 1: API key from frontend (should work)
     test1_payload = {
-        "user_api_key": "AIzaSyDF2GrZUUyPk8naOxtijDvLnXNK-7B9vYM",
+        "user_api_key": "your_api_key_here",  # Replace with actual API key
         "user_prompt": "Extract customer data with fields: name, email, phone",
         "extracted_text": "John Doe, email: john@example.com, phone: 123-456-7890",
         "ai_provider": "gemini"
@@ -72,7 +72,7 @@ def main():
     
     # Test 4: Missing required fields
     test4_payload = {
-        "user_api_key": "AIzaSyDF2GrZUUyPk8naOxtijDvLnXNK-7B9vYM",
+        "user_api_key": "your_api_key_here",  # Replace with actual API key
         "user_prompt": "Extract data"
         # Missing extracted_text
     }
