@@ -2,56 +2,22 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
-}
+import { useNotifications } from '@/contexts/NotificationContext';
 
 const Navbar: React.FC = () => {
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   
-  // Sample notifications data
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: '1',
-      title: 'Processing Complete',
-      message: 'Your data processing task has finished successfully.',
-      time: '2 minutes ago',
-      read: false
-    },
-    {
-      id: '2',
-      title: 'Upload Ready',
-      message: 'New file upload is ready for processing.',
-      time: '1 hour ago',
-      read: false
-    },
-    {
-      id: '3',
-      title: 'System Update',
-      message: 'AI processing capabilities have been updated.',
-      time: '3 hours ago',
-      read: true
-    }
-  ]);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
+  // Use global notification state
+  const { 
+    notifications, 
+    unreadCount, 
+    markAsRead, 
+    markAllAsRead,
+    removeNotification,
+    clearAllNotifications 
+  } = useNotifications();
 
   return (
     <nav className="w-full fixed bg-white shadow-sm border-b border-gray-200 top-0 z-50">
@@ -113,14 +79,24 @@ const Navbar: React.FC = () => {
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
                   <div className="px-4 py-2 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={markAllAsRead}
-                        className="text-xs text-blue-600 hover:text-blue-800"
-                      >
-                        Mark all read
-                      </button>
-                    )}
+                    <div className="flex space-x-2">
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={clearAllNotifications}
+                          className="text-xs text-red-600 hover:text-red-800"
+                        >
+                          Clear all
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="max-h-64 overflow-y-auto">
                     {notifications.length === 0 ? (
@@ -131,28 +107,69 @@ const Navbar: React.FC = () => {
                       notifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 ${
+                          className={`px-4 py-3 hover:bg-gray-50 border-l-4 relative group ${
                             notification.read
                               ? 'border-transparent'
-                              : 'border-blue-500 bg-blue-50'
+                              : `${
+                                  notification.type === 'success' ? 'border-green-500 bg-green-50' :
+                                  notification.type === 'error' ? 'border-red-500 bg-red-50' :
+                                  notification.type === 'warning' ? 'border-yellow-500 bg-yellow-50' :
+                                  'border-blue-500 bg-blue-50'
+                                }`
                           }`}
-                          onClick={() => markAsRead(notification.id)}
                         >
                           <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">
-                                {notification.title}
-                              </p>
+                            <div className="flex-1 cursor-pointer" onClick={() => markAsRead(notification.id)}>
+                              <div className="flex items-center space-x-2">
+                                {/* Notification Type Icon */}
+                                {notification.type === 'success' && (
+                                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                                {notification.type === 'error' && (
+                                  <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                )}
+                                {notification.type === 'warning' && (
+                                  <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
+                                  </svg>
+                                )}
+                                {notification.type === 'info' && (
+                                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                )}
+                                <p className="text-sm font-medium text-gray-900">
+                                  {notification.title}
+                                </p>
+                              </div>
                               <p className="text-sm text-gray-600 mt-1">
                                 {notification.message}
                               </p>
                               <p className="text-xs text-gray-400 mt-2">
-                                {notification.time}
+                                {(notification as any).timeAgo}
                               </p>
                             </div>
-                            {!notification.read && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1"></div>
-                            )}
+                            <div className="flex items-center space-x-2 ml-2">
+                              {!notification.read && (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              )}
+                              {/* Delete button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeNotification(notification.id);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded transition-opacity"
+                              >
+                                <svg className="w-3 h-3 text-gray-400 hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))

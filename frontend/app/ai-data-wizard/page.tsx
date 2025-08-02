@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import toast from 'react-hot-toast';
+import { useNotify } from '@/hooks/useNotify';
 
 // Layout Components
 import StepNavigation from '@/components/layout/StepNavigation';
@@ -27,6 +27,9 @@ const INITIAL_STEPS = [
 ];
 
 export default function DataCleaningPipeline() {
+  // Notification system
+  const notify = useNotify();
+
   // Step navigation state
   const {
     steps,
@@ -113,6 +116,7 @@ export default function DataCleaningPipeline() {
   const handleFileUpload = (file: File) => {
     setUploadedFile(file);
     updateStepStatus(0, 'complete');
+    notify.success('File Upload', `Successfully uploaded ${file.name}`);
   };
 
   const handleExtractionComplete = (text: string) => {
@@ -120,9 +124,9 @@ export default function DataCleaningPipeline() {
     setIsExtracting(false);
     if (text) {
       updateStepStatus(1, 'complete');
-      toast.success('Text extracted successfully!');
+      notify.success('Text Extraction', 'Text extracted successfully from PDF!');
     } else {
-      toast.error('Failed to extract text from PDF');
+      notify.error('Text Extraction Failed', 'Could not extract text from the uploaded PDF file');
     }
   };
 
@@ -131,20 +135,21 @@ export default function DataCleaningPipeline() {
     setIsProcessing(false);
     if (data) {
       updateStepStatus(2, 'complete');
-      toast.success('Data processed successfully with AI!');
+      notify.success('AI Processing', 'Data processed successfully with AI!');
     } else {
-      toast.error('Failed to process data with AI');
+      notify.error('AI Processing Failed', 'Could not process data with AI - please check your configuration');
     }
   };
 
   const handleDatabaseComplete = () => {
     updateStepStatus(3, 'complete');
+    notify.success('Database Integration', 'Data successfully integrated with database!');
   };
 
   const handleRestart = () => {
     resetSteps();
     resetProcessingState();
-    toast.success('Process restarted - ready for new upload');
+    notify.info('Process Restarted', 'Ready for new file upload and processing');
   };
 
   const canGoToNextStep = () => {
