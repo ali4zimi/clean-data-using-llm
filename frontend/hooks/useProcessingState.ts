@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export interface ProcessingState {
   // File and data state
@@ -12,16 +13,12 @@ export interface ProcessingState {
   
   // Form field state - Step 3 (AI Processing)
   prompt: string;
-  aiProvider: string;
-  aiApiKey: string;
   selectedTemplate: string;
   
   // Form field state - Step 4 (Database Integration)
   tableName: string;
   queryType: 'insert' | 'ai';
   aiPrompt: string;
-  dbAiProvider: 'openai' | 'google';
-  dbApiKey: string;
   
   // Processing states
   isExtracting: boolean;
@@ -29,6 +26,8 @@ export interface ProcessingState {
 }
 
 export function useProcessingState() {
+  const { settings } = useSettings();
+  
   // File and data state
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [extractedText, setExtractedText] = useState('');
@@ -40,16 +39,12 @@ export function useProcessingState() {
 
   // Form field state - Step 3 (AI Processing)
   const [prompt, setPrompt] = useState('');
-  const [aiProvider, setAiProvider] = useState('google');
-  const [aiApiKey, setAiApiKey] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
 
   // Form field state - Step 4 (Database Integration)
   const [tableName, setTableName] = useState('');
   const [queryType, setQueryType] = useState<'insert' | 'ai'>('insert');
   const [aiPrompt, setAiPrompt] = useState('');
-  const [dbAiProvider, setDbAiProvider] = useState<'openai' | 'google'>('google');
-  const [dbApiKey, setDbApiKey] = useState('');
 
   // Processing states
   const [isExtracting, setIsExtracting] = useState(false);
@@ -93,16 +88,6 @@ export function useProcessingState() {
     }
   };
 
-  const syncAIConfigurationToDatabase = () => {
-    // Sync AI provider from Step 3 to Step 4 (they should now use the same values)
-    setDbAiProvider(aiProvider as 'openai' | 'google');
-
-    // Sync API key from Step 3 to Step 4 if not already set
-    if (aiApiKey && !dbApiKey) {
-      setDbApiKey(aiApiKey);
-    }
-  };
-
   const resetProcessingState = () => {
     // Reset file and data state
     setUploadedFile(null);
@@ -115,14 +100,10 @@ export function useProcessingState() {
     
     // Reset form field state
     setPrompt('');
-    setAiProvider('google');
-    setAiApiKey('');
     setSelectedTemplate('');
     setTableName('');
     setQueryType('insert');
     setAiPrompt('');
-    setDbAiProvider('google');
-    setDbApiKey('');
     
     // Reset processing states
     setIsExtracting(false);
@@ -141,16 +122,12 @@ export function useProcessingState() {
     
     // Form field state - Step 3
     prompt,
-    aiProvider,
-    aiApiKey,
     selectedTemplate,
     
     // Form field state - Step 4
     tableName,
     queryType,
     aiPrompt,
-    dbAiProvider,
-    dbApiKey,
     
     // Processing states
     isExtracting,
@@ -167,16 +144,12 @@ export function useProcessingState() {
     
     // Form field setters - Step 3
     setPrompt,
-    setAiProvider,
-    setAiApiKey,
     setSelectedTemplate,
     
     // Form field setters - Step 4
     setTableName,
     setQueryType,
     setAiPrompt,
-    setDbAiProvider,
-    setDbApiKey,
     
     // Processing state setters
     setIsExtracting,
@@ -185,7 +158,10 @@ export function useProcessingState() {
     // Complex operations
     updateProcessedData,
     updateColumnOrder,
-    syncAIConfigurationToDatabase,
-    resetProcessingState
+    resetProcessingState,
+    
+    // Settings from context
+    aiProvider: settings.defaultAiProvider,
+    apiKey: settings.defaultApiKey,
   };
 }

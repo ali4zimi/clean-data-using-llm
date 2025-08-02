@@ -1,7 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useNotify } from '@/hooks/useNotify';
+import { useWizardStore } from '@/stores/wizardStore';
+import { useSettings } from '@/contexts/SettingsContext';
 
 // Layout Components
 import StepNavigation from '@/components/layout/StepNavigation';
@@ -15,104 +18,84 @@ import DatabaseIntegrationStep from '@/components/features/database-integration/
 // UI Components
 import Button from '@/components/ui/Button';
 
-// Hooks
-import { useStepNavigation } from '@/hooks/useStepNavigation';
-import { useProcessingState } from '@/hooks/useProcessingState';
-
-const INITIAL_STEPS = [
-  { name: "Upload PDF", status: "incomplete" as const },
-  { name: "Text Extraction", status: "incomplete" as const },
-  { name: "Process with AI", status: "incomplete" as const },
-  { name: "Database Integration", status: "incomplete" as const }
-];
-
 export default function DataCleaningPipeline() {
   // Notification system
   const notify = useNotify();
 
-  // Step navigation state
+  // Zustand store
   const {
-    steps,
+    // State
     currentStep,
-    updateStepStatus,
-    goToStep,
-    nextStep,
-    previousStep,
-    resetSteps,
-    getNextButtonText,
-    getPreviousButtonText
-  } = useStepNavigation(INITIAL_STEPS);
-
-  // Processing state (now includes all form fields)
-  const {
-    // File and data state
+    steps,
     uploadedFile,
     extractedText,
     processedData,
     cleanedDataCSV,
     columnOrder,
-    showFullTableStep3,
-    showFullTableStep4,
-    
-    // Form field state - Step 3
     prompt,
-    aiProvider,
-    aiApiKey,
     selectedTemplate,
-    
-    // Form field state - Step 4
     tableName,
     queryType,
     aiPrompt,
-    dbAiProvider,
-    dbApiKey,
-    
-    // Processing states
+    showFullTableStep4,
     isExtracting,
     isProcessing,
     
-    // Setters
+    // Actions
+    setCurrentStep,
+    goToStep,
+    nextStep,
+    previousStep,
+    updateStepStatus,
     setUploadedFile,
     setExtractedText,
-    setShowFullTableStep3,
-    setShowFullTableStep4,
+    setProcessedData,
+    updateColumnOrder,
     setPrompt,
-    setAiProvider,
-    setAiApiKey,
     setSelectedTemplate,
     setTableName,
     setQueryType,
     setAiPrompt,
-    setDbAiProvider,
-    setDbApiKey,
+    setShowFullTableStep4,
     setIsExtracting,
     setIsProcessing,
+    resetWizard,
+    canGoToNextStep,
+    getNextButtonText,
+    getPreviousButtonText,
+    restoreFileFromPersisted,
+    hasHydrated,
+  } = useWizardStore();
+
+  // Settings context for AI provider and API key
+  const { settings } = useSettings();
+
+  // Handle URL parameters for step navigation with persistence priority
+  const searchParams = useSearchParams();
+  
+  useEffect(() => {
+    // Only use URL step parameter if coming from external navigation (like settings)
+    const stepParam = searchParams.get('step');
+    const fromParam = searchParams.get('from');
     
-    // Complex operations
-    updateProcessedData,
-    updateColumnOrder,
-    syncAIConfigurationToDatabase,
-    resetProcessingState
-  } = useProcessingState();
-
-  // Wrapper functions for step navigation with AI sync
-  const handleGoToStep = (stepNumber: number) => {
-    // Sync AI configuration when going to step 4
-    if (stepNumber === 4) {
-      syncAIConfigurationToDatabase();
+    if (stepParam && fromParam) {
+      // Coming from external navigation (like settings), respect URL
+      const stepNumber = parseInt(stepParam, 10);
+      if (stepNumber >= 1 && stepNumber <= 4) {
+        goToStep(stepNumber);
+      }
     }
-    goToStep(stepNumber);
-  };
+    // If no 'from' parameter, let persisted currentStep take precedence
+  }, [searchParams, goToStep]);
 
-  const handleNextStep = () => {
-    // Sync AI configuration when moving to step 4
-    if (currentStep === 3) {
-      syncAIConfigurationToDatabase();
+  // Restore file from persisted data after hydration completes
+  useEffect(() => {
+    if (hasHydrated) {
+      restoreFileFromPersisted();
     }
-    nextStep();
-  };
+  }, [hasHydrated, restoreFileFromPersisted]);
 
-  // Handlers
+  // Event handlers
   const handleFileUpload = (file: File) => {
     setUploadedFile(file);
     updateStepStatus(0, 'complete');
@@ -131,7 +114,7 @@ export default function DataCleaningPipeline() {
   };
 
   const handleProcessingComplete = (data: any, userColumnOrder?: string[]) => {
-    updateProcessedData(data, userColumnOrder);
+    setProcessedData(data, userColumnOrder);
     setIsProcessing(false);
     if (data) {
       updateStepStatus(2, 'complete');
@@ -147,13 +130,8 @@ export default function DataCleaningPipeline() {
   };
 
   const handleRestart = () => {
-    resetSteps();
-    resetProcessingState();
-    notify.info('Process Restarted', 'Ready for new file upload and processing');
-  };
-
-  const canGoToNextStep = () => {
-    return steps[currentStep - 1]?.status === "complete";
+    resetWizard();
+    notify.success('Reset Complete', 'Wizard has been reset. You can start fresh!');
   };
 
   const renderStepContent = () => {
@@ -186,12 +164,10 @@ export default function DataCleaningPipeline() {
           <AIProcessingStep
             extractedText={extractedText}
             prompt={prompt}
-            aiProvider={aiProvider}
-            apiKey={aiApiKey}
+            aiProvider={settings.defaultAiProvider}
+            apiKey={settings.defaultApiKey}
             selectedTemplate={selectedTemplate}
             onPromptChange={setPrompt}
-            onAiProviderChange={setAiProvider}
-            onApiKeyChange={setAiApiKey}
             onSelectedTemplateChange={setSelectedTemplate}
             isProcessing={isProcessing}
             onProcessingStart={() => setIsProcessing(true)}
@@ -207,15 +183,15 @@ export default function DataCleaningPipeline() {
             tableName={tableName}
             queryType={queryType}
             aiPrompt={aiPrompt}
-            dbAiProvider={dbAiProvider}
-            dbApiKey={dbApiKey}
+            dbAiProvider={settings.defaultAiProvider}
+            dbApiKey={settings.defaultApiKey}
             onComplete={handleDatabaseComplete}
             onColumnOrderChange={updateColumnOrder}
             onTableNameChange={setTableName}
             onQueryTypeChange={setQueryType}
             onAiPromptChange={setAiPrompt}
-            onDbAiProviderChange={setDbAiProvider}
-            onDbApiKeyChange={setDbApiKey}
+            onDbAiProviderChange={() => {}}
+            onDbApiKeyChange={() => {}}
             showFullTable={showFullTableStep4}
             onShowFullTableChange={setShowFullTableStep4}
           />
@@ -229,45 +205,54 @@ export default function DataCleaningPipeline() {
   return (
     <main className="w-full min-h-[calc(100vh-4rem)] bg-gray-100 flex justify-center p-4 md:p-8 pt-8 md:pt-8">
       <div className='w-full max-w-2xl h-fit flex flex-col gap-3'>
-        {/* Step Navigation */}
-        <StepNavigation
-          steps={steps}
-          currentStep={currentStep}
-          onStepClick={handleGoToStep}
-        />
-        
-        {/* Step Content */}
-        {renderStepContent()}
+        {!hasHydrated ? (
+          // Show loading state during hydration
+          <div className="flex items-center justify-center p-8">
+            <div className="text-gray-500">Loading...</div>
+          </div>
+        ) : (
+          <>
+            {/* Step Navigation */}
+            <StepNavigation
+              steps={steps}
+              currentStep={currentStep}
+              onStepClick={goToStep}
+            />
+            
+            {/* Step Content */}
+            {renderStepContent()}
 
-        {/* Navigation Buttons */}
-        <div className="flex flex-col sm:flex-row justify-between gap-4 mt-4">
-          <Button
-            onClick={previousStep}
-            disabled={currentStep === 1}
-            variant="secondary"
-            className="w-full sm:w-auto"
-          >
-            {getPreviousButtonText()}
-          </Button>
-          
-          {currentStep < steps.length ? (
-            <Button
-              onClick={handleNextStep}
-              disabled={!canGoToNextStep()}
-              className="w-full sm:w-auto"
-            >
-              {getNextButtonText()}
-            </Button>
-          ) : (
-            <Button
-              onClick={handleRestart}
-              variant="success"
-              className="w-full sm:w-auto"
-            >
-              Start New Process
-            </Button>
-          )}
-        </div>
+            {/* Navigation Buttons */}
+            <div className="flex flex-col sm:flex-row justify-between gap-4 mt-4">
+              <Button
+                onClick={previousStep}
+                disabled={currentStep === 1}
+                variant="secondary"
+                className="w-full sm:w-auto"
+              >
+                {getPreviousButtonText()}
+              </Button>
+
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button
+                  onClick={handleRestart}
+                  variant="secondary"
+                  className="flex-1 sm:flex-none"
+                >
+                  Restart
+                </Button>
+                
+                <Button
+                  onClick={nextStep}
+                  disabled={currentStep === 4 || !canGoToNextStep()}
+                  className="flex-1 sm:flex-none"
+                >
+                  {getNextButtonText()}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </main>
   );

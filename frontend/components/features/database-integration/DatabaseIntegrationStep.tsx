@@ -7,7 +7,6 @@ import DataTable from '../data-table/DataTable';
 import DataActions from '../data-table/DataActions';
 import QueryTypeSelector from './QueryTypeSelector';
 import SQLQueryDisplay from './SQLQueryDisplay';
-import AIProviderConfig from '../ai-processing/AIProviderConfig';
 import { ColumnDef, ColumnOrderState } from '@tanstack/react-table';
 import toast from 'react-hot-toast';
 
@@ -369,15 +368,40 @@ export default function DatabaseIntegrationStep({
                 />
               </div>
 
-              <AIProviderConfig
-                provider={dbAiProvider}
-                apiKey={dbApiKey}
-                onProviderChange={(provider) => onDbAiProviderChange(provider as 'openai' | 'google')}
-                onApiKeyChange={onDbApiKeyChange}
-              />
+              {/* AI Configuration Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <span className="text-blue-600 mr-2">ℹ️</span>
+                    <h4 className="font-semibold text-blue-800">AI Configuration</h4>
+                  </div>
+                </div>
+                <p className="text-blue-700 text-sm mb-2">
+                  Using <strong>{dbAiProvider === 'openai' ? 'OpenAI (GPT-4)' : 'Google (Gemini)'}</strong> for query generation.
+                </p>
+                {!dbApiKey && (
+                  <p className="text-red-600 text-sm">
+                    ⚠️ No API key configured. Please set your default API key in{' '}
+                    <a href="/settings?from=wizard&step=4" className="font-semibold underline hover:text-red-800">
+                      Settings
+                    </a>{' '}
+                    to enable AI query generation.
+                  </p>
+                )}
+                {dbApiKey && (
+                  <p className="text-green-600 text-sm">
+                    ✅ API key configured and ready for query generation.{' '}
+                    <a
+                      href="/settings?from=wizard&step=4"
+                      className="text-xs text-blue-600 hover:text-blue-800 underline font-medium"
+                    >
+                      Change
+                    </a>
+                  </p>
+                )}
+              </div>
             </>
           )}
-
 
           {/* Generate Query Button */}
           <div className="space-y-3">

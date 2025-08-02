@@ -6,7 +6,6 @@ import Button from '../../ui/Button';
 import FileDisplay from '../../ui/FileDisplay';
 import PromptSelector from './PromptSelector';
 import PromptEditor from './PromptEditor';
-import AIProviderConfig from './AIProviderConfig';
 
 interface PromptTemplate {
   id: number;
@@ -21,8 +20,6 @@ interface AIProcessingStepProps {
   apiKey: string;
   selectedTemplate: string;
   onPromptChange: (prompt: string) => void;
-  onAiProviderChange: (provider: string) => void;
-  onApiKeyChange: (apiKey: string) => void;
   onSelectedTemplateChange: (templateId: string) => void;
   isProcessing: boolean;
   onProcessingStart: () => void;
@@ -36,8 +33,6 @@ export default function AIProcessingStep({
   apiKey,
   selectedTemplate,
   onPromptChange,
-  onAiProviderChange,
-  onApiKeyChange,
   onSelectedTemplateChange,
   isProcessing,
   onProcessingStart,
@@ -191,13 +186,38 @@ export default function AIProcessingStep({
         }}
       />
 
-      {/* AI Provider Configuration */}
-      <AIProviderConfig
-        provider={aiProvider}
-        apiKey={apiKey}
-        onProviderChange={onAiProviderChange}
-        onApiKeyChange={onApiKeyChange}
-      />
+      {/* AI Configuration Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center">
+            <span className="text-blue-600 mr-2">ℹ️</span>
+            <h4 className="font-semibold text-blue-800">AI Configuration</h4>
+          </div>
+        </div>
+        <p className="text-blue-700 text-sm mb-2">
+          Using <strong>{aiProvider === 'openai' ? 'OpenAI (GPT-4)' : 'Google (Gemini)'}</strong> for processing.
+        </p>
+        {!apiKey && (
+          <p className="text-red-600 text-sm">
+            ⚠️ No API key configured. Please set your default API key in{' '}
+            <a href="/settings?from=wizard&step=3" className="font-semibold underline hover:text-red-800">
+              Settings
+            </a>{' '}
+            to enable AI processing.
+          </p>
+        )}
+        {apiKey && (
+          <p className="text-green-600 text-sm">
+            ✅ API key configured and ready for processing.{' '}
+            <a
+              href="/settings?from=wizard&step=3"
+              className="text-xs text-blue-600 hover:text-blue-800 underline font-medium"
+            >
+              Change
+            </a>
+          </p>
+        )}
+      </div>
 
       {/* Process Button */}
       <Button 
