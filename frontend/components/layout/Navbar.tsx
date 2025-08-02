@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface NotificationItem {
   id: string;
@@ -11,6 +12,7 @@ interface NotificationItem {
 }
 
 const Navbar: React.FC = () => {
+  const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   
@@ -52,12 +54,15 @@ const Navbar: React.FC = () => {
   };
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+    <nav className="w-full fixed bg-white shadow-sm border-b border-gray-200 top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo Section */}
           <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center">
+            <button 
+              onClick={() => router.push('/')}
+              className="flex-shrink-0 flex items-center hover:opacity-80 transition-opacity cursor-pointer"
+            >
               {/* Logo Icon */}
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
                 <svg
@@ -78,7 +83,7 @@ const Navbar: React.FC = () => {
                 DataClean
                 <span className="text-blue-600">AI</span>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* Right Section: Notifications + User Account */}
