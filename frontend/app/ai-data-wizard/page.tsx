@@ -113,6 +113,16 @@ export default function DataCleaningPipeline() {
     }
   };
 
+  const handleTextChange = (text: string) => {
+    setExtractedText(text);
+    // Mark step as complete if text exists, incomplete if empty
+    if (text.trim()) {
+      updateStepStatus(1, 'complete');
+    } else {
+      updateStepStatus(1, 'incomplete');
+    }
+  };
+
   const handleProcessingComplete = (data: any, userColumnOrder?: string[]) => {
     setProcessedData(data, userColumnOrder);
     setIsProcessing(false);
@@ -155,7 +165,7 @@ export default function DataCleaningPipeline() {
             isExtracting={isExtracting}
             onExtractionStart={() => setIsExtracting(true)}
             onExtractionComplete={handleExtractionComplete}
-            onTextChange={setExtractedText}
+            onTextChange={handleTextChange}
           />
         );
 
@@ -169,6 +179,7 @@ export default function DataCleaningPipeline() {
             selectedTemplate={selectedTemplate}
             onPromptChange={setPrompt}
             onSelectedTemplateChange={setSelectedTemplate}
+            onExtractedTextChange={handleTextChange}
             isProcessing={isProcessing}
             onProcessingStart={() => setIsProcessing(true)}
             onProcessingComplete={handleProcessingComplete}

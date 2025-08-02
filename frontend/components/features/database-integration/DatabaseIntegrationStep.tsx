@@ -7,6 +7,7 @@ import DataTable from '../data-table/DataTable';
 import DataActions from '../data-table/DataActions';
 import QueryTypeSelector from './QueryTypeSelector';
 import SQLQueryDisplay from './SQLQueryDisplay';
+import PromptEditor from '../ai-processing/PromptEditor';
 import { ColumnDef, ColumnOrderState } from '@tanstack/react-table';
 import toast from 'react-hot-toast';
 
@@ -16,6 +17,7 @@ interface DatabaseIntegrationStepProps {
   tableName: string;
   queryType: 'insert' | 'ai';
   aiPrompt: string;
+  aiPromptPlaceholder?: string;
   dbAiProvider: 'openai' | 'google';
   dbApiKey: string;
   onComplete: () => void;
@@ -349,24 +351,18 @@ export default function DatabaseIntegrationStep({
           {/* AI Query Configuration */}
           {queryType === 'ai' && (
             <>
-              <div className="mb-4">
-                <label htmlFor="ai-prompt" className="block text-sm font-medium text-gray-700 mb-2">
-                  AI Prompt:
-                </label>
-                <textarea
-                  id="ai-prompt"
-                  className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  rows={4}
-                  value={aiPrompt}
-                  onChange={(e) => onAiPromptChange(e.target.value)}
-                  placeholder="Describe what kind of SQL query you want to generate. For example:
-• Create a table with proper data types and constraints
-• Add indexes for better performance
-• Include validation rules for email and phone fields
-• Create a view that joins multiple concepts
-• Generate stored procedures for data manipulation"
-                />
-              </div>
+              <PromptEditor 
+                prompt={aiPrompt}
+                onPromptChange={onAiPromptChange}
+                label="AI Prompt:"
+                placeholder={`Describe what kind of SQL query you want to generate. For example:\n
+                                • Create a table with proper data types and constraints
+                                • Update existing records based on certain conditions
+                                • Merge this table with an existing one
+                                • Generate stored procedures for data manipulation`}
+                height="144px"
+                customPlaceholder={true}
+              />
 
               {/* AI Configuration Info */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">

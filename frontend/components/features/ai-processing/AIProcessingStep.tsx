@@ -21,6 +21,7 @@ interface AIProcessingStepProps {
   selectedTemplate: string;
   onPromptChange: (prompt: string) => void;
   onSelectedTemplateChange: (templateId: string) => void;
+  onExtractedTextChange: (text: string) => void;
   isProcessing: boolean;
   onProcessingStart: () => void;
   onProcessingComplete: (data: any, columnOrder?: string[]) => void;
@@ -34,6 +35,7 @@ export default function AIProcessingStep({
   selectedTemplate,
   onPromptChange,
   onSelectedTemplateChange,
+  onExtractedTextChange,
   isProcessing,
   onProcessingStart,
   onProcessingComplete
@@ -162,7 +164,11 @@ export default function AIProcessingStep({
             value={editableText}
             className="w-full h-60 p-3 bg-gray-50 border border-gray-300 rounded text-sm text-gray-700 resize-none focus:outline-none"
             placeholder="Extracted text will appear here..."
-            onChange={(e) => setEditableText(e.target.value)}
+            onChange={(e) => {
+              const newText = e.target.value;
+              setEditableText(newText);
+              onExtractedTextChange(newText);
+            }}
           />
         </div>
       )}

@@ -285,7 +285,13 @@ export const useWizardStore = create<WizardState>()(
       setHasHydrated: (hydrated: boolean) => set({ hasHydrated: hydrated }),
       
       // Utility actions
-      resetWizard: () => set(initialState),
+      resetWizard: () => {
+        const state = get();
+        set({
+          ...initialState,
+          hasHydrated: state.hasHydrated, // Preserve hydration state
+        });
+      },
       
       canGoToNextStep: () => {
         const state = get();
