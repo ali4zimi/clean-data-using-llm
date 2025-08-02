@@ -19,8 +19,8 @@
     "pdf-parse": "^1.1.1",
     "react": "^19.0.0",
     "react-hot-toast": "^2.5.2",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "zustand": "^5.0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
