@@ -5,8 +5,9 @@ import Card from '@/components/ui/Card';
 
 export default function ProfilePage() {
   return (
-    <main className="container mx-auto p-6 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-8">Profile</h1>
+    <main className="w-full min-h-[calc(100vh-4rem)] bg-gray-100 flex justify-center p-4 md:p-8 pt-8 md:pt-8">
+      <div className='w-full max-w-2xl h-fit flex flex-col gap-3'>
+        <h1 className="text-3xl font-bold mb-8">Profile</h1>
       
       <Card className="p-8">
         <div className="text-center">
@@ -38,6 +39,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </Card>
+      </div>
     </main>
   );
 }

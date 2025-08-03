@@ -54,8 +54,9 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="container mx-auto p-6 max-w-4xl">
-      <div className="flex justify-between items-center mb-8">
+    <main className="w-full min-h-[calc(100vh-4rem)] bg-gray-100 flex justify-center p-4 md:p-8 pt-8 md:pt-8">
+      <div className='w-full max-w-2xl h-fit flex flex-col gap-3'>
+        <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold">Settings</h1>
           {fromWizard && (
@@ -218,6 +219,7 @@ export default function SettingsPage() {
           </div>
         </Card>
       </div>
+    </div>
     </main>
   );
 }

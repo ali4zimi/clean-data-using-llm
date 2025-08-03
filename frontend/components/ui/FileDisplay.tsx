@@ -74,7 +74,7 @@ export default function FileDisplay({
   };
 
   return (
-    <div className={`flex items-center justify-between border rounded p-2 ${getBorderColor()} ${getBackgroundColor()} ${className}`}>
+    <div className={`flex items-center justify-between border rounded p-3 ${getBorderColor()} ${getBackgroundColor()} ${className}`}>
       <div className="flex items-center">
         <span className={`text-xs font-medium mr-2 px-2 py-1 rounded ${getTagColor()}`}>
           {type}

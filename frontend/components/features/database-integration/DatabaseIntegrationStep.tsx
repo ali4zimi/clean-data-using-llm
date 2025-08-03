@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Card from '../../ui/Card';
 import Button from '../../ui/Button';
+import Dropdown from '../../ui/Dropdown';
 import DataTable from '../data-table/DataTable';
 import DataActions from '../data-table/DataActions';
 import QueryTypeSelector from './QueryTypeSelector';
@@ -52,6 +53,7 @@ export default function DatabaseIntegrationStep({
   const [sqlQuery, setSqlQuery] = useState('');
   const [showQuery, setShowQuery] = useState(false);
   const [localColumnOrder, setLocalColumnOrder] = useState<ColumnOrderState>(columnOrder || []);
+  const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
 
   // Convert 2D array to object array for TanStack Table
   const tableData = useMemo(() => {
@@ -305,27 +307,85 @@ export default function DatabaseIntegrationStep({
     <Card title="Advanced Query Generation">
       {processedData && processedData.length > 0 ? (
         <>  
-          {/* Data Preview */}
-          <DataActions
-            data={tableData}
-            columnOrder={localColumnOrder}
-            showTable={showFullTable}
-            onShowTableChange={onShowFullTableChange || (() => {})}
-            onDownloadCSV={downloadCSV}
-            onDownloadJSON={downloadJSON}
-            itemCount={tableData.length}
-            fileName="processed_data.csv"
-          />
-
-          {/* Data Table */}
-          {showFullTable && (
-            <DataTable
-              data={tableData}
-              columns={columns}
-              columnOrder={localColumnOrder}
-              onColumnOrderChange={handleColumnOrderChange}
-            />
-          )}
+          {/* Data Table & Preview - Integrated Accordion Alert Box */}
+          <div className="mb-4">
+            <div className="bg-orange-100 border border-orange-200 rounded-lg overflow-visible relative">
+              <div 
+                className="p-4 cursor-pointer transition-colors rounded-lg"
+                onClick={() => onShowFullTableChange && onShowFullTableChange(!showFullTable)}
+              >
+                <div className="flex items-center justify-between ">
+                  <div className="flex items-center">
+                    <span className="text-xs font-medium mr-2 px-2 py-1 rounded bg-orange-100 text-orange-600 border border-orange-400">CSV</span>
+                    <div>
+                      <h4 className="text-sm font-medium text-orange-800">processed_data.csv</h4>
+                      <p className="text-xs text-orange-600">{tableData.length} rows × {columns.length} columns</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 relative z-20">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShowFullTableChange && onShowFullTableChange(!showFullTable);
+                      }}
+                      className="text-sm px-2 py-1 border border-orange-300 rounded hover:bg-orange-100 transition-colors text-orange-700"
+                    >
+                      {showFullTable ? 'Hide Table' : 'View Table'}
+                    </button>
+                    <Dropdown
+                      isOpen={showDownloadDropdown}
+                      onClose={() => setShowDownloadDropdown(false)}
+                      trigger={
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowDownloadDropdown(!showDownloadDropdown);
+                          }}
+                          className="text-sm px-2 py-1 border border-orange-300 rounded hover:bg-orange-100 transition-colors text-orange-700 flex items-center"
+                        >
+                          Download
+                          <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      }
+                    >
+                      <div className="w-24">
+                        <button
+                          onClick={() => {
+                            downloadCSV();
+                            setShowDownloadDropdown(false);
+                          }}
+                          className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-md"
+                        >
+                          CSV
+                        </button>
+                        <button
+                          onClick={() => {
+                            downloadJSON();
+                            setShowDownloadDropdown(false);
+                          }}
+                          className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-md"
+                        >
+                          JSON
+                        </button>
+                      </div>
+                    </Dropdown>
+                  </div>
+                </div>
+              </div>
+              {showFullTable && (
+                <div className="border-t border-orange-200 p-4 bg-orange-50 rounded-b-lg">
+                  <DataTable
+                    data={tableData}
+                    columns={columns}
+                    columnOrder={localColumnOrder}
+                    onColumnOrderChange={handleColumnOrderChange}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Table Name Input */}
           <div className="mb-4">

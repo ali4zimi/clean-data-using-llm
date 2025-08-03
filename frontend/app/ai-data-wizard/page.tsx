@@ -107,8 +107,8 @@ export default function DataCleaningPipeline() {
     setIsExtracting(false);
     if (text) {
       updateStepStatus(1, 'complete');
-      notify.success('Text Extraction', 'Text extracted successfully from PDF!');
     } else {
+      // Only show error notification here since TextExtractionStep handles success
       notify.error('Text Extraction Failed', 'Could not extract text from the uploaded PDF file');
     }
   };
@@ -128,8 +128,8 @@ export default function DataCleaningPipeline() {
     setIsProcessing(false);
     if (data) {
       updateStepStatus(2, 'complete');
-      notify.success('AI Processing', 'Data processed successfully with AI!');
     } else {
+      // Only show error notification here since AIProcessingStep handles success
       notify.error('AI Processing Failed', 'Could not process data with AI - please check your configuration');
     }
   };

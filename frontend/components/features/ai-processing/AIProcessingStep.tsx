@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../../ui/Card';
 import Button from '../../ui/Button';
-import FileDisplay from '../../ui/FileDisplay';
+import EditableTextAccordion from '../../ui/EditableTextAccordion';
 import PromptSelector from './PromptSelector';
 import PromptEditor from './PromptEditor';
+import { useNotify } from '../../../hooks/useNotify';
+import toast from 'react-hot-toast';
 
 interface PromptTemplate {
   id: number;
@@ -42,11 +44,15 @@ export default function AIProcessingStep({
 }: AIProcessingStepProps) {
   const [showTextView, setShowTextView] = useState(false);
   const [editableText, setEditableText] = useState(extractedText);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  
+  const notify = useNotify();
 
   useEffect(() => {
     setEditableText(extractedText);
+    setHasUnsavedChanges(false);
   }, [extractedText]);
 
   // Fetch prompt templates on component mount
@@ -76,7 +82,7 @@ export default function AIProcessingStep({
     if (templateId === '') {
       return;
     }
-    
+
     const template = promptTemplates.find(t => t.id.toString() === templateId);
     if (template) {
       onPromptChange(template.prompt);
@@ -97,7 +103,20 @@ export default function AIProcessingStep({
     }
 
     onProcessingStart();
-    
+
+    // Create a simple loading toast without progress bar
+    const toastId = toast.loading(
+      <div className="flex items-center space-x-3">
+        <div>
+          <div className="font-medium">Processing Data with AI</div>
+          <div className="text-sm text-slate-300">This may take a few moments. We'll notify you when complete.</div>
+        </div>
+      </div>,
+      {
+        duration: Infinity, // Keep toast open until we dismiss it
+      }
+    );
+
     try {
       const response = await fetch('/api/clean-with-ai', {
         method: 'POST',
@@ -119,59 +138,57 @@ export default function AIProcessingStep({
 
       const data = await response.json();
       onProcessingComplete(data.content);
+      
+      toast.dismiss(toastId);
+      
+      // Add to notification center (this will also show a toast automatically)
+      notify.success('AI Processing Complete', 'Data has been successfully processed and cleaned with AI');
     } catch (error) {
       console.error('AI processing error:', error);
       onProcessingComplete(null);
+      
+      // Show error notification and dismiss loading toast
+      toast.dismiss(toastId);
+      
+      // Add to notification center (this will also show a toast automatically)
+      notify.error('AI Processing Failed', 'Failed to process data with AI. Please check your settings and try again.');
+      
       throw error; // Let parent handle the error
     }
+  };
+
+  const handleSaveChanges = () => {
+    onExtractedTextChange(editableText);
+    setHasUnsavedChanges(false);
+  };
+
+  const handleDiscardChanges = () => {
+    setEditableText(extractedText);
+    setHasUnsavedChanges(false);
   };
 
   const canProcess = editableText.length > 0 && prompt.trim().length > 0 && apiKey.trim().length > 0;
 
   return (
     <Card title="Data Cleaning with AI">
-      {/* Extracted Text Display */}
-      <div className="mb-4">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Extracted Text:</h3>
-        {editableText ? (
-          <FileDisplay
-            name="extracted_text.txt"
-            size={editableText.length}
-            type="TXT"
-            onView={() => setShowTextView(!showTextView)}
-          />
-        ) : (
-          <div className="border rounded p-3 bg-gray-50 border-gray-200">
-            <p className="text-gray-500 text-sm">No text extracted yet</p>
-          </div>
-        )}
-      </div>
-
-      {/* Text Editor */}
-      {showTextView && editableText && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-700">Edit Extracted Text:</h3>
-            <Button
-              onClick={() => setShowTextView(false)}
-              variant="secondary"
-              size="sm"
-            >
-              Hide
-            </Button>
-          </div>
-          <textarea
-            value={editableText}
-            className="w-full h-60 p-3 bg-gray-50 border border-gray-300 rounded text-sm text-gray-700 resize-none focus:outline-none"
-            placeholder="Extracted text will appear here..."
-            onChange={(e) => {
-              const newText = e.target.value;
-              setEditableText(newText);
-              onExtractedTextChange(newText);
-            }}
-          />
-        </div>
-      )}
+      {/* Extracted Text & Editor - Integrated Accordion Alert Box */}
+      <EditableTextAccordion
+        title="Extracted Text"
+        filename="extracted_text.txt"
+        text={extractedText}
+        currentText={editableText}
+        showEditor={showTextView}
+        hasUnsavedChanges={hasUnsavedChanges}
+        placeholder="Extracted text will appear here..."
+        onToggleEditor={() => setShowTextView(!showTextView)}
+        onTextChange={(newText) => {
+          setEditableText(newText);
+          setHasUnsavedChanges(newText !== extractedText);
+        }}
+        onSave={handleSaveChanges}
+        onDiscard={handleDiscardChanges}
+        emptyStateMessage="No text extracted yet"
+      />
 
       {/* Prompt Configuration */}
       <PromptSelector
@@ -226,7 +243,7 @@ export default function AIProcessingStep({
       </div>
 
       {/* Process Button */}
-      <Button 
+      <Button
         onClick={handleProcess}
         disabled={isProcessing || !canProcess}
         loading={isProcessing}
